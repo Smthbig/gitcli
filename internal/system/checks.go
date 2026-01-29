@@ -179,37 +179,50 @@ CheckInternet:
 - Android safe
 */
 func CheckInternet() {
+	Online = false
+
+	// ---------- 1️⃣ Git-based check (MOST reliable on Android) ----------
+	if commandExists("git") {
+		cmd := exec.Command("git", "ls-remote", "https://github.com/git/git")
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+
+		if err := cmd.Run(); err == nil {
+			Online = true
+			return
+		}
+	}
+
+	// ---------- 2️⃣ Curl fallback ----------
+	if commandExists("curl") {
+		cmd := exec.Command("curl", "-I", "--max-time", "5", "https://api.github.com")
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+
+		if err := cmd.Run(); err == nil {
+			Online = true
+			return
+		}
+	}
+
+	// ---------- 3️⃣ net/http fallback ----------
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
 
 	req, err := http.NewRequest("GET", "https://api.github.com", nil)
 	if err != nil {
-		Online = false
 		return
 	}
-
-	// GitHub requires User-Agent
 	req.Header.Set("User-Agent", "git-genius")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		Online = false
 		return
 	}
 	defer resp.Body.Close()
 
-	/*
-		IMPORTANT:
-		- 2xx → OK
-		- 3xx → OK (redirects)
-		- 4xx → STILL ONLINE (auth / permission issue)
-		- 5xx → GitHub down → treat as offline
-	*/
-	if resp.StatusCode >= 500 {
-		Online = false
-		return
+	if resp.StatusCode < 500 {
+		Online = true
 	}
-
-	Online = true
 }
