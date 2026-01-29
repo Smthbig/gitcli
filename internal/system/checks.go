@@ -172,16 +172,30 @@ func runInstall(command string) error {
    NETWORK CHECK (ANDROID & GITHUB SAFE)
    ============================================================ */
 
+/* ============================================================
+   NETWORK CHECK (ANDROID-FIRST & GITHUB SAFE)
+   ============================================================ */
+
 /*
-CheckInternet:
-- DOES NOT confuse permission errors with offline
-- Uses GitHub API root
-- Android safe
+CheckInternet rules:
+- ANDROID  → ALWAYS ONLINE (git/curl already works)
+- NON-ANDROID →
+ 1. git ls-remote (best)
+ 2. curl fallback
+ 3. net/http fallback
+
+- Permission / auth errors ≠ offline
 */
 func CheckInternet() {
+	// 🔥 ANDROID: trust the environment
+	if isAndroid() {
+		Online = true
+		return
+	}
+
 	Online = false
 
-	// ---------- 1️⃣ Git-based check (MOST reliable on Android) ----------
+	// ---------- 1️⃣ Git-based check (most reliable) ----------
 	if commandExists("git") {
 		cmd := exec.Command("git", "ls-remote", "https://github.com/git/git")
 		cmd.Stdout = nil
@@ -195,7 +209,13 @@ func CheckInternet() {
 
 	// ---------- 2️⃣ Curl fallback ----------
 	if commandExists("curl") {
-		cmd := exec.Command("curl", "-I", "--max-time", "5", "https://api.github.com")
+		cmd := exec.Command(
+			"curl",
+			"-I",
+			"--silent",
+			"--max-time", "5",
+			"https://api.github.com",
+		)
 		cmd.Stdout = nil
 		cmd.Stderr = nil
 
@@ -222,6 +242,7 @@ func CheckInternet() {
 	}
 	defer resp.Body.Close()
 
+	// 2xx, 3xx, 4xx = ONLINE
 	if resp.StatusCode < 500 {
 		Online = true
 	}
