@@ -3,13 +3,11 @@ package system
 import (
 	"bufio"
 	"errors"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"git-genius/internal/ui"
 )
@@ -179,40 +177,8 @@ CheckInternet:
 - Non-Android = single lightweight GitHub API ping
 - Auth / permission errors ≠ offline
 */
+// CheckInternet intentionally trusts the environment.
+// Used for Android / restricted systems where git already proves connectivity.
 func CheckInternet() {
-	// 🔥 Android: trust environment (git/curl already works)
-	if isAndroid() {
-		Online = true
-		return
-	}
-
 	Online = true
-
-	client := http.Client{
-		Timeout: 4 * time.Second,
-	}
-
-	req, err := http.NewRequest("GET", "https://api.github.com", nil)
-	if err != nil {
-		return
-	}
-
-	// GitHub requires UA
-	req.Header.Set("User-Agent", "git-genius")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-
-	/*
-		2xx → OK
-		3xx → OK
-		4xx → STILL ONLINE (auth / permission issue)
-		5xx → treat as offline
-	*/
-	if resp.StatusCode < 500 {
-		Online = true
-	}
 }
