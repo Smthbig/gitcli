@@ -66,22 +66,15 @@ func getGitPath() string {
 // ============================================================
 // SAFE DIRECTORY (Git ≥ 2.35 ANDROID FIX)
 // ============================================================
-//
 
-// EnsureSafeDirectory fixes "dubious ownership" issue
-func EnsureSafeDirectory(dir string) {
-	if dir == "" {
+// EnsureSafeDirectory fixes Git ≥2.35 dubious ownership issue
+func EnsureSafeDirectory(path string) {
+	if path == "" {
 		return
 	}
-
-	_ = exec.Command(
-		getGitPath(),
-		"config",
-		"--global",
-		"--add",
-		"safe.directory",
-		dir,
-	).Run()
+	_ = RunGit(
+		"config", "--global", "--add", "safe.directory", path,
+	)
 }
 
 //
