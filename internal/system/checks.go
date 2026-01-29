@@ -169,71 +169,35 @@ func runInstall(command string) error {
 }
 
 /* ============================================================
-   NETWORK CHECK (ANDROID & GITHUB SAFE)
-   ============================================================ */
-
-/* ============================================================
-   NETWORK CHECK (ANDROID-FIRST & GITHUB SAFE)
+   NETWORK CHECK (MINIMAL, SAFE, EXPLICIT)
    ============================================================ */
 
 /*
-CheckInternet rules:
-- ANDROID  → ALWAYS ONLINE (git/curl already works)
-- NON-ANDROID →
- 1. git ls-remote (best)
- 2. curl fallback
- 3. net/http fallback
-
-- Permission / auth errors ≠ offline
+CheckInternet:
+- Runs ONLY when explicitly called
+- Android = always online (git already proves connectivity)
+- Non-Android = single lightweight GitHub API ping
+- Auth / permission errors ≠ offline
 */
 func CheckInternet() {
-	// 🔥 ANDROID: trust the environment
+	// 🔥 Android: trust environment (git/curl already works)
 	if isAndroid() {
 		Online = true
 		return
 	}
 
-	Online = false
+	Online = true
 
-	// ---------- 1️⃣ Git-based check (most reliable) ----------
-	if commandExists("git") {
-		cmd := exec.Command("git", "ls-remote", "https://github.com/git/git")
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-
-		if err := cmd.Run(); err == nil {
-			Online = true
-			return
-		}
-	}
-
-	// ---------- 2️⃣ Curl fallback ----------
-	if commandExists("curl") {
-		cmd := exec.Command(
-			"curl",
-			"-I",
-			"--silent",
-			"--max-time", "5",
-			"https://api.github.com",
-		)
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-
-		if err := cmd.Run(); err == nil {
-			Online = true
-			return
-		}
-	}
-
-	// ---------- 3️⃣ net/http fallback ----------
 	client := http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: 4 * time.Second,
 	}
 
 	req, err := http.NewRequest("GET", "https://api.github.com", nil)
 	if err != nil {
 		return
 	}
+
+	// GitHub requires UA
 	req.Header.Set("User-Agent", "git-genius")
 
 	resp, err := client.Do(req)
@@ -242,7 +206,12 @@ func CheckInternet() {
 	}
 	defer resp.Body.Close()
 
-	// 2xx, 3xx, 4xx = ONLINE
+	/*
+		2xx → OK
+		3xx → OK
+		4xx → STILL ONLINE (auth / permission issue)
+		5xx → treat as offline
+	*/
 	if resp.StatusCode < 500 {
 		Online = true
 	}
