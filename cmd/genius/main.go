@@ -33,7 +33,7 @@ func main() {
 	}
 
 	// --- Network check (best-effort only) ---
-	//	system.CheckInternet()
+	system.CheckInternet()
 
 	// --- Start UI ---
 	menu.Start()
