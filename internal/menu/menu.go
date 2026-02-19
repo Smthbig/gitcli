@@ -9,6 +9,7 @@ import (
 	"git-genius/internal/doctor"
 	"git-genius/internal/gitops"
 	"git-genius/internal/setup"
+	"git-genius/internal/system"
 	"git-genius/internal/ui"
 )
 
@@ -60,7 +61,7 @@ func showContext() {
 	fmt.Println("Project :", filepath.Base(projectDir))
 	fmt.Println("Path    :", projectDir)
 	fmt.Println("Branch  :", gitops.CurrentBranch())
-	fmt.Println("Remote  :", gitops.CurrentRemote())
+	fmt.Println("Remote  :", system.CurrentRemote())
 
 	if cfg.Owner != "" && cfg.Repo != "" {
 		fmt.Println("Repo    :", "https://github.com/"+cfg.Owner+"/"+cfg.Repo)

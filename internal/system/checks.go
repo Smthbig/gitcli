@@ -177,8 +177,3 @@ CheckInternet:
 - Non-Android = single lightweight GitHub API ping
 - Auth / permission errors ≠ offline
 */
-// CheckInternet intentionally trusts the environment.
-// Used for Android / restricted systems where git already proves connectivity.
-func CheckInternet() {
-	Online = true
-}

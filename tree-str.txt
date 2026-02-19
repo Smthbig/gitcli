@@ -1,0 +1,43 @@
+Generated on: Thu Feb 19 22:11:21 UTC 2026
+
+gitcli/
+├── build.txt
+├── cmd
+│   └── genius
+│       └── main.go
+├── git-genius
+├── go.mod
+├── install.sh
+├── internal
+│   ├── config
+│   │   └── config.go
+│   ├── doctor
+│   │   └── doctor.go
+│   ├── github
+│   │   ├── client.go
+│   │   ├── repo.go
+│   │   └── token.go
+│   ├── gitops
+│   │   ├── branch.go
+│   │   ├── branch_sync.go
+│   │   ├── git.go
+│   │   ├── smart_pull.go
+│   │   ├── stash.go
+│   │   └── undo.go
+│   ├── menu
+│   │   └── menu.go
+│   ├── setup
+│   │   ├── change_dir.go
+│   │   ├── github_repo.go
+│   │   └── setup.go
+│   ├── system
+│   │   ├── checks.go
+│   │   ├── git.go
+│   │   ├── logger.go
+│   │   └── runtime.go
+│   └── ui
+│       ├── help.go
+│       └── ui.go
+├── readme.md
+├── tree-str.txt
+└── uninstall.sh

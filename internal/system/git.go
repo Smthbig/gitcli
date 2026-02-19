@@ -1,6 +1,8 @@
 package system
 
 import (
+	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,18 +13,16 @@ import (
 	"git-genius/internal/ui"
 )
 
-//
-// ============================================================
-// SAFE COMMAND / GIT RESOLUTION (NO exec.LookPath)
-// ============================================================
-//
-
 var (
 	gitPath string
+	gitErr  error
 	gitOnce sync.Once
 )
 
-// CommandExists checks any command safely (Android safe)
+///////////////////////////////////////////////////////////////
+// COMMAND EXISTS (RESTORED FOR DOCTOR)
+///////////////////////////////////////////////////////////////
+
 func CommandExists(cmd string) bool {
 	pathEnv := os.Getenv("PATH")
 	if pathEnv == "" {
@@ -39,55 +39,65 @@ func CommandExists(cmd string) bool {
 	return false
 }
 
-func resolveGit() string {
+///////////////////////////////////////////////////////////////
+// GIT RESOLUTION
+///////////////////////////////////////////////////////////////
+
+func resolveGit() (string, error) {
 	pathEnv := os.Getenv("PATH")
 	if pathEnv == "" {
-		return ""
+		return "", errors.New("PATH not set")
 	}
 
 	for _, dir := range strings.Split(pathEnv, ":") {
 		full := filepath.Join(dir, "git")
 		info, err := os.Stat(full)
 		if err == nil && info.Mode().IsRegular() && info.Mode()&0111 != 0 {
-			return full
+			return full, nil
 		}
 	}
-	return ""
+
+	return "", errors.New("git not found in PATH")
 }
 
-func getGitPath() string {
+func getGitPath() (string, error) {
 	gitOnce.Do(func() {
-		gitPath = resolveGit()
+		gitPath, gitErr = resolveGit()
 	})
-	return gitPath
+
+	if gitPath == "" {
+		return "", errors.New("git not installed")
+	}
+
+	return gitPath, gitErr
 }
 
-//
-// ============================================================
-// SAFE DIRECTORY (Git ≥ 2.35 ANDROID FIX)
-// ============================================================
+///////////////////////////////////////////////////////////////
+// SAFE DIRECTORY (Git ≥2.35 Android fix)
+///////////////////////////////////////////////////////////////
 
-// EnsureSafeDirectory fixes Git ≥2.35 dubious ownership issue
 func EnsureSafeDirectory(path string) {
 	if path == "" {
 		return
 	}
-	_ = RunGit(
-		"config", "--global", "--add", "safe.directory", path,
-	)
+
+	// prevent duplicate entries
+	existing, _ := GitOutput("config", "--global", "--get-all", "safe.directory")
+	if strings.Contains(existing, path) {
+		return
+	}
+
+	_ = RunGit("config", "--global", "--add", "safe.directory", path)
 }
 
-//
-// ============================================================
-// GIT COMMAND BUILDERS
-// ============================================================
-//
+///////////////////////////////////////////////////////////////
+// COMMAND BUILDERS
+///////////////////////////////////////////////////////////////
 
-// GitCmd builds git command using config.WorkDir
-func GitCmd(args ...string) *exec.Cmd {
-	git := getGitPath()
-	if git == "" {
-		return exec.Command("false")
+func GitCmd(args ...string) (*exec.Cmd, error) {
+	git, err := getGitPath()
+	if err != nil {
+		return nil, err
 	}
 
 	cmd := exec.Command(git, args...)
@@ -97,88 +107,113 @@ func GitCmd(args ...string) *exec.Cmd {
 		cmd.Dir = cfg.WorkDir
 	}
 
-	return cmd
+	return cmd, nil
 }
 
-// GitCmdAt builds git command for explicit directory
-func GitCmdAt(dir string, args ...string) *exec.Cmd {
-	git := getGitPath()
-	if git == "" {
-		return exec.Command("false")
+func GitCmdAt(dir string, args ...string) (*exec.Cmd, error) {
+	git, err := getGitPath()
+	if err != nil {
+		return nil, err
 	}
 
 	cmd := exec.Command(git, args...)
 	cmd.Dir = dir
-	return cmd
+	return cmd, nil
 }
 
-//
-// ============================================================
-// GIT EXECUTORS
-// ============================================================
-//
+///////////////////////////////////////////////////////////////
+// EXECUTORS
+///////////////////////////////////////////////////////////////
 
-// RunGit runs git in config.WorkDir
 func RunGit(args ...string) error {
-	cmd := GitCmd(args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		LogError("git "+strings.Join(args, " "), err)
+	cmd, err := GitCmd(args...)
+	if err != nil {
 		return err
 	}
-	return nil
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	return cmd.Run()
 }
 
-// RunGitAt runs git in specific directory
 func RunGitAt(dir string, args ...string) error {
-	cmd := GitCmdAt(dir, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		LogError("git "+strings.Join(args, " "), err)
+	cmd, err := GitCmdAt(dir, args...)
+	if err != nil {
 		return err
 	}
-	return nil
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	return cmd.Run()
 }
 
-// GitOutput runs git and returns trimmed output
 func GitOutput(args ...string) (string, error) {
-	cmd := GitCmd(args...)
-	out, err := cmd.Output()
+	cmd, err := GitCmd(args...)
 	if err != nil {
-		LogError("git "+strings.Join(args, " "), err)
 		return "", err
 	}
-	return strings.TrimSpace(string(out)), nil
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	if err != nil {
+		if stderr.Len() > 0 {
+			return "", errors.New(strings.TrimSpace(stderr.String()))
+		}
+		return "", err
+	}
+
+	return strings.TrimSpace(out.String()), nil
 }
 
-// GitOutputAt runs git in dir and returns output
 func GitOutputAt(dir string, args ...string) (string, error) {
-	cmd := GitCmdAt(dir, args...)
-	out, err := cmd.Output()
+	cmd, err := GitCmdAt(dir, args...)
 	if err != nil {
-		LogError("git "+strings.Join(args, " "), err)
 		return "", err
 	}
-	return strings.TrimSpace(string(out)), nil
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	if err != nil {
+		if stderr.Len() > 0 {
+			return "", errors.New(strings.TrimSpace(stderr.String()))
+		}
+		return "", err
+	}
+
+	return strings.TrimSpace(out.String()), nil
 }
 
-//
-// ============================================================
+///////////////////////////////////////////////////////////////
 // REPOSITORY CHECKS
-// ============================================================
-//
+///////////////////////////////////////////////////////////////
 
 func IsGitRepo() bool {
-	cmd := GitCmd("rev-parse", "--is-inside-work-tree")
+	cmd, err := GitCmd("rev-parse", "--is-inside-work-tree")
+	if err != nil {
+		return false
+	}
 	return cmd.Run() == nil
 }
 
 func IsGitRepoAt(dir string) bool {
-	cmd := GitCmdAt(dir, "rev-parse", "--is-inside-work-tree")
+	cmd, err := GitCmdAt(dir, "rev-parse", "--is-inside-work-tree")
+	if err != nil {
+		return false
+	}
 	return cmd.Run() == nil
 }
 
@@ -192,13 +227,13 @@ func EnsureGitRepo() bool {
 
 	ui.Warn("Selected directory is not a git repository")
 
-	if !ui.Confirm("Do you want to initialize a git repository here?") {
-		ui.Error("Git repository required to continue")
+	if !ui.Confirm("Initialize a git repository here?") {
+		ui.Error("Git repository required")
 		return false
 	}
 
 	if err := RunGit("init"); err != nil {
-		ui.Error("Failed to initialize git repository")
+		ui.Error("Git initialization failed")
 		return false
 	}
 
@@ -206,34 +241,9 @@ func EnsureGitRepo() bool {
 	return true
 }
 
-func EnsureGitRepoAt(dir string) bool {
-	EnsureSafeDirectory(dir)
-
-	if IsGitRepoAt(dir) {
-		return true
-	}
-
-	ui.Warn("Selected directory is not a git repository")
-
-	if !ui.Confirm("Do you want to initialize a git repository here?") {
-		ui.Error("Git repository required to continue")
-		return false
-	}
-
-	if err := RunGitAt(dir, "init"); err != nil {
-		ui.Error("Failed to initialize git repository")
-		return false
-	}
-
-	ui.Success("Git repository initialized")
-	return true
-}
-
-//
-// ============================================================
+///////////////////////////////////////////////////////////////
 // BRANCH HELPERS
-// ============================================================
-//
+///////////////////////////////////////////////////////////////
 
 func CurrentGitBranch() string {
 	branch, err := GitOutput("branch", "--show-current")
@@ -241,6 +251,22 @@ func CurrentGitBranch() string {
 		return ""
 	}
 	return branch
+}
+
+func CurrentRemote() string {
+	cfg := config.Load()
+
+	if cfg.Remote == "" {
+		return "-"
+	}
+
+	// verify remote actually exists
+	_, err := GitOutput("remote", "get-url", cfg.Remote)
+	if err != nil {
+		return "-"
+	}
+
+	return cfg.Remote
 }
 
 func CurrentGitBranchAt(dir string) string {
@@ -255,7 +281,7 @@ func EnsureBranchSync() bool {
 	cfg := config.Load()
 	current := CurrentGitBranch()
 
-	if current == "" || cfg.Branch == current {
+	if current == "" || current == cfg.Branch {
 		return true
 	}
 
@@ -265,7 +291,7 @@ func EnsureBranchSync() bool {
 
 	if ui.Confirm("Rename git branch to " + cfg.Branch + "?") {
 		if err := RunGit("branch", "-m", cfg.Branch); err == nil {
-			ui.Success("Git branch renamed to: " + cfg.Branch)
+			ui.Success("Git branch renamed")
 			return true
 		}
 		ui.Warn("Branch rename failed")
@@ -273,6 +299,5 @@ func EnsureBranchSync() bool {
 
 	cfg.Branch = current
 	config.Save(cfg)
-	ui.Success("Config branch updated to: " + current)
 	return true
 }

@@ -3,7 +3,6 @@ package doctor
 import (
 	"os"
 	"path/filepath"
-	"strings"
 
 	"git-genius/internal/config"
 	"git-genius/internal/github"
@@ -11,11 +10,16 @@ import (
 	"git-genius/internal/ui"
 )
 
-// Run performs full system + git health check (ANDROID SAFE)
+/*
+Doctor:
+Full system + git + github health check
+No offline mode
+Compatible with new system layer
+Android safe
+*/
 func Run() {
-	ui.Header("Git Genius Doctor 🩺")
 
-	system.CheckInternet()
+	ui.Header("Git Genius Doctor 🩺")
 
 	checkGitInstalled()
 	checkWorkDir()
@@ -23,7 +27,6 @@ func Run() {
 	checkGitBranch()
 	checkGitIdentity()
 	checkRemote()
-	checkInternet()
 	checkGitHubToken()
 	checkGitHubRepo()
 	checkErrorLog()
@@ -31,9 +34,9 @@ func Run() {
 	ui.Success("Doctor check completed")
 }
 
-/* ============================================================
-   CHECKS
-   ============================================================ */
+///////////////////////////////////////////////////////////////
+// CHECKS
+///////////////////////////////////////////////////////////////
 
 func checkGitInstalled() {
 	if system.CommandExists("git") {
@@ -42,7 +45,6 @@ func checkGitInstalled() {
 	}
 
 	ui.Error("Git not found in PATH")
-	ui.Info("Please install git manually for your environment")
 }
 
 func checkWorkDir() {
@@ -69,47 +71,34 @@ func checkGitRepo() {
 	}
 
 	ui.Warn("No git repository found")
-
-	if ui.Confirm("Initialize git repository here?") {
-		if err := system.RunGitAt(dir, "init"); err != nil {
-			ui.Error("Failed to initialize git repository")
-			return
-		}
-		system.EnsureSafeDirectory(dir)
-		ui.Success("Git repository initialized")
-	}
+	ui.Info("Run Setup to initialize repository")
 }
 
 func checkGitBranch() {
 	cfg := config.Load()
 	dir := cfg.GetWorkDir()
 
-	current := system.CurrentGitBranchAt(dir)
-
-	if current == "" {
+	branch, err := system.GitOutputAt(dir, "branch", "--show-current")
+	if err != nil || branch == "" {
 		ui.Warn("No commits yet (branch not created)")
 		return
 	}
 
-	ui.Success("Current git branch: " + current)
+	ui.Success("Current git branch: " + branch)
 
-	if current != cfg.Branch {
+	if branch != cfg.Branch {
 		ui.Warn("Branch mismatch detected")
 		ui.Info("Config branch : " + cfg.Branch)
-		ui.Info("Git branch    : " + current)
-		ui.Info("Run Setup to safely sync branch")
+		ui.Info("Git branch    : " + branch)
 	}
 }
 
-/*
-Git identity check (ANDROID SAFE, LOCAL REPO ONLY)
-*/
 func checkGitIdentity() {
 	cfg := config.Load()
 	dir := cfg.GetWorkDir()
 
-	name := gitConfig(dir, "user.name")
-	email := gitConfig(dir, "user.email")
+	name, _ := system.GitOutputAt(dir, "config", "--get", "user.name")
+	email, _ := system.GitOutputAt(dir, "config", "--get", "user.email")
 
 	if name != "" && email != "" {
 		ui.Success("Git identity configured")
@@ -119,27 +108,7 @@ func checkGitIdentity() {
 	}
 
 	ui.Warn("Git identity not configured")
-	ui.Info("Commits may appear as root@localhost")
-
-	if !ui.Confirm("Configure git identity for THIS repo now?") {
-		return
-	}
-
-	if name == "" {
-		val := ui.Input("Enter your name")
-		if val != "" {
-			_ = system.RunGitAt(dir, "config", "user.name", val)
-		}
-	}
-
-	if email == "" {
-		val := ui.Input("Enter your email")
-		if val != "" {
-			_ = system.RunGitAt(dir, "config", "user.email", val)
-		}
-	}
-
-	ui.Success("Git identity configured (local repository)")
+	ui.Info("Run Setup to configure git identity")
 }
 
 func checkRemote() {
@@ -151,41 +120,33 @@ func checkRemote() {
 		return
 	}
 
-	if err := system.RunGitAt(dir, "remote", "get-url", cfg.Remote); err != nil {
+	_, err := system.GitOutputAt(dir, "remote", "get-url", cfg.Remote)
+	if err != nil {
 		ui.Warn("Remote not found: " + cfg.Remote)
-		ui.Info("Run Tools → Create / Link GitHub Repository")
+		ui.Info("Run Create / Link GitHub Repository")
 		return
 	}
 
 	ui.Success("Git remote configured: " + cfg.Remote)
 }
 
-func checkInternet() {
-	if system.Online {
-		ui.Success("Internet connection available")
-	} else {
-		ui.Warn("Offline mode detected")
-		ui.Info("GitHub validation & push may fail")
-	}
-}
-
 func checkGitHubToken() {
+
 	token := github.GetToken()
 	if token == "" {
 		ui.Warn("GitHub token not configured")
-		ui.Info("Run Setup to configure token")
 		return
 	}
 
-	user, err := github.Validate()
+	client, err := github.NewClient()
 	if err != nil {
-		ui.Error("GitHub token invalid or expired")
-		ui.Info("Run Setup to reconfigure token")
+		ui.Error("Invalid GitHub token")
 		return
 	}
 
-	if user == "offline-mode" {
-		ui.Warn("GitHub token validation skipped (offline)")
+	user, err := client.GetAuthenticatedUser()
+	if err != nil {
+		ui.Warn("GitHub token invalid or expired")
 		return
 	}
 
@@ -209,13 +170,18 @@ func checkGitHubRepo() {
 		ui.Success("GitHub repository exists")
 	} else {
 		ui.Warn("GitHub repository does not exist")
-		ui.Info("Run Tools → Create / Link GitHub Repository")
 	}
 }
 
 func checkErrorLog() {
 	cfg := config.Load()
-	logPath := filepath.Join(cfg.GetWorkDir(), ".git", ".genius", "error.log")
+
+	logPath := filepath.Join(
+		cfg.GetWorkDir(),
+		".git",
+		".genius",
+		"error.log",
+	)
 
 	if _, err := os.Stat(logPath); err == nil {
 		ui.Warn("Error log exists")
@@ -223,19 +189,4 @@ func checkErrorLog() {
 	} else {
 		ui.Success("No error log found")
 	}
-}
-
-/* ============================================================
-   HELPERS
-   ============================================================ */
-
-func gitConfig(dir, key string) string {
-	var out strings.Builder
-	cmd := system.GitCmdAt(dir, "config", "--get", key)
-	cmd.Stdout = &out
-
-	if err := cmd.Run(); err != nil {
-		return ""
-	}
-	return strings.TrimSpace(out.String())
 }

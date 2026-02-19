@@ -10,12 +10,13 @@ import (
 )
 
 /*
-CreateOrLinkRepo creates OR links a GitHub repository
-Android-safe, Org-safe, Token-safe
-Used in:
-Tools → Create / Link GitHub Repository
+CreateOrLinkRepo
+Stable, token-safe, org-safe
+No fake offline mode
+No hard dependency on RepoExists
 */
 func CreateOrLinkRepo() {
+
 	ui.Clear()
 	ui.Header("Create / Link GitHub Repository")
 
@@ -28,12 +29,15 @@ func CreateOrLinkRepo() {
 		return
 	}
 
+	system.EnsureSafeDirectory(cfg.WorkDir)
+
 	// --------------------------------------------------
 	// Owner / Repo
 	// --------------------------------------------------
 	if cfg.Owner == "" {
 		cfg.Owner = ui.Input("GitHub username or organisation")
 	}
+
 	if cfg.Repo == "" {
 		cfg.Repo = ui.Input("Repository name")
 	}
@@ -43,76 +47,52 @@ func CreateOrLinkRepo() {
 		return
 	}
 
+	// Default remote if empty
+	if cfg.Remote == "" {
+		cfg.Remote = "origin"
+	}
+
 	// --------------------------------------------------
-	// Token check (NOT validating ownership here)
+	// Token check (no validation yet)
 	// --------------------------------------------------
 	token := github.GetToken()
 	if token == "" {
 		ui.Error("GitHub token not configured")
-		ui.Info("Run: Tools → Setup / Reconfigure")
+		ui.Info("Run Setup first to configure token")
 		return
 	}
 
 	// --------------------------------------------------
-	// Internet check (reliable now)
-	// --------------------------------------------------
-	if !system.Online {
-		ui.Warn("No internet connection detected")
-		ui.Info("Cannot verify or create GitHub repository")
-		return
-	}
-
-	// --------------------------------------------------
-	// Repo existence check
+	// Try checking repo existence (non-fatal)
 	// --------------------------------------------------
 	exists, err := github.RepoExists(cfg.Owner, cfg.Repo)
+
 	if err != nil {
-		ui.Error("Failed to communicate with GitHub API")
-		ui.Info("Possible reasons:")
-		ui.Info("• Invalid token")
-		ui.Info("• GitHub rate limit")
-		ui.Info("• Organisation access denied")
-		system.LogError("repo exists check failed", err)
-		return
-	}
+		ui.Warn("Could not verify repository with GitHub API")
+		ui.Info("Continuing anyway...")
+	} else if !exists {
 
-	// --------------------------------------------------
-	// Create repo if missing
-	// --------------------------------------------------
-	if !exists {
-		ui.Warn("GitHub repository does not exist")
+		ui.Warn("Repository does not exist on GitHub")
 
-		if !ui.Confirm("Create repository on GitHub now?") {
-			ui.Warn("Repository creation skipped")
-			return
+		if ui.Confirm("Create repository on GitHub now?") {
+
+			private := ui.Confirm("Make repository PRIVATE?")
+
+			if err := github.CreateRepo(cfg.Owner, cfg.Repo, private); err != nil {
+				ui.Error("Repository creation failed")
+				ui.Info(err.Error())
+				ui.Info("You may create the repository manually and retry.")
+				return
+			}
+
+			ui.Success("Repository created successfully")
 		}
-
-		private := ui.Confirm("Make repository PRIVATE?")
-
-		err := github.CreateRepo(cfg.Owner, cfg.Repo, private)
-		if err != nil {
-			ui.Error("Repository creation failed")
-
-			ui.Info("Common causes:")
-			ui.Info("• You are NOT an owner/admin of organisation: " + cfg.Owner)
-			ui.Info("• Token lacks required permissions")
-			ui.Info("• Organisation restricts repo creation")
-
-			ui.Info("Fix:")
-			ui.Info("• Ask org admin to create repo manually")
-			ui.Info("• OR push to your personal account")
-
-			system.LogError("repo creation failed", err)
-			return
-		}
-
-		ui.Success("GitHub repository created successfully")
 	} else {
-		ui.Success("GitHub repository already exists")
+		ui.Success("GitHub repository exists")
 	}
 
 	// --------------------------------------------------
-	// Configure remote (SECURE, NO TOKEN IN URL)
+	// Configure remote safely
 	// --------------------------------------------------
 	remoteURL := fmt.Sprintf(
 		"https://github.com/%s/%s.git",
@@ -120,17 +100,30 @@ func CreateOrLinkRepo() {
 		cfg.Repo,
 	)
 
-	_ = system.RunGit("remote", "remove", cfg.Remote)
+	// Check if remote exists
+	existingURL, _ := system.GitOutput("remote", "get-url", cfg.Remote)
 
-	if err := system.RunGit("remote", "add", cfg.Remote, remoteURL); err != nil {
-		ui.Error("Failed to configure git remote")
-		system.LogError("remote add failed", err)
-		return
+	if existingURL != "" {
+		if existingURL == remoteURL {
+			ui.Success("Remote already configured correctly")
+		} else {
+			if err := system.RunGit("remote", "set-url", cfg.Remote, remoteURL); err != nil {
+				ui.Error("Failed to update existing remote")
+				return
+			}
+			ui.Success("Remote updated successfully")
+		}
+	} else {
+		if err := system.RunGit("remote", "add", cfg.Remote, remoteURL); err != nil {
+			ui.Error("Failed to add remote")
+			return
+		}
+		ui.Success("Remote added successfully")
 	}
 
 	config.Save(cfg)
 
-	ui.Success("GitHub repository linked successfully")
-	ui.Info("You will be asked for authentication on first push")
-	ui.Info("Use your GitHub username + token as password")
+	ui.Success("Repository linked successfully")
+	ui.Info("Authentication will be requested during push")
+	ui.Info("Use GitHub username + Personal Access Token")
 }

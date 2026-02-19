@@ -1,75 +1,75 @@
 package github
 
 import (
-	"encoding/json"
 	"errors"
-	"net/http"
 	"os"
-	"time"
-
-	"git-genius/internal/system"
+	"path/filepath"
+	"strings"
 )
 
 const (
-	geniusDir = ".git/.genius"
-	tokenFile = geniusDir + "/token"
-	apiUser   = "https://api.github.com/user"
+	geniusDirName = ".git-genius"
+	tokenFileName = "token"
 )
 
-type userResponse struct {
-	Login string `json:"login"`
+/*
+getTokenPath:
+  - Stores token in user home directory
+  - Example:
+    ~/.git-genius/token
+*/
+func getTokenPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	dir := filepath.Join(home, geniusDirName)
+	return filepath.Join(dir, tokenFileName), nil
 }
 
 /* ================= TOKEN ================= */
 
 func GetToken() string {
-	data, _ := os.ReadFile(tokenFile)
-	return string(data)
+	path, err := getTokenPath()
+	if err != nil {
+		return ""
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(data))
 }
 
 func Save(token string) error {
+	token = strings.TrimSpace(token)
 	if token == "" {
 		return errors.New("empty token")
 	}
-	_ = os.MkdirAll(geniusDir, 0700)
-	return os.WriteFile(tokenFile, []byte(token), 0600)
-}
 
-func Delete() {
-	_ = os.Remove(tokenFile)
-}
-
-/* ================= VALIDATION ================= */
-
-func Validate() (string, error) {
-	token := GetToken()
-	if token == "" {
-		return "", errors.New("no github token")
-	}
-
-	if !system.Online {
-		return "offline-mode", nil
-	}
-
-	client := http.Client{Timeout: 5 * time.Second}
-	req, _ := http.NewRequest("GET", apiUser, nil)
-	req.Header.Set("Authorization", "token "+token)
-	req.Header.Set("User-Agent", "git-genius")
-
-	resp, err := client.Do(req)
+	path, err := getTokenPath()
 	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return "", errors.New("invalid github token")
+		return err
 	}
 
-	var u userResponse
-	if err := json.NewDecoder(resp.Body).Decode(&u); err != nil {
-		return "", err
+	dir := filepath.Dir(path)
+
+	// Create ~/.git-genius
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
 	}
 
-	return u.Login, nil
+	// Write token securely
+	return os.WriteFile(path, []byte(token), 0600)
+}
+
+func Delete() error {
+	path, err := getTokenPath()
+	if err != nil {
+		return err
+	}
+	return os.Remove(path)
 }

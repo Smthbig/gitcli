@@ -1,0 +1,11 @@
+1. Select directory
+2. EnsureGitRepo
+3. EnsureSafeDirectory
+4. EnsureBranchSync
+5. EnsureGitIdentity
+6. Ask Owner
+7. Ask Repo Name (default = folder name, but editable)
+8. Ask Token (only store, don’t validate)
+9. Try repo create (if fails → warn, continue)
+10. Configure remote (without token in URL)
+11. First push
