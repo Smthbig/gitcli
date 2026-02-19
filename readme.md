@@ -1,122 +1,96 @@
-# Git Genius
+# 🧠 Git Genius
 
-Git Genius is a beginner-friendly, interactive Git CLI tool that helps you work with Git repositories **without memorizing commands**.
+**Git without the "Grit."** Git Genius is a beginner-friendly, interactive CLI tool that helps you manage your repositories **without memorizing commands.**
 
-It is designed to be:
-- safe for beginners
-- useful for daily development
-- modular and future-ready
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
 ---
-## INSTALATION
+
+## 🚀 Why Git Genius?
+
+Git is powerful, but the command-line workflow can be a maze of cryptic flags and accidental "detached HEAD" nightmares. Git Genius acts as your **intelligent navigator**, providing a menu-driven interface that handles the heavy lifting while you focus on your code.
+
+* **Safe for Beginners:** Built-in guardrails and explicit confirmations.
+* **Smart Workflows:** Automated stashing and recovery during pulls.
+* **Built-in Doctor:** One-click health checks for your local environment.
+
+---
+
+## 🛠 Installation
+
+Get up and running in seconds. This one-liner ensures a fresh installation by clearing previous versions.
+
+```bash
+# Uninstall old version & Install fresh
 curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/uninstall.sh | bash
 curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/install.sh | bash
+
+# Launch the tool
 git-genius
-
-## Why Git Genius?
-
-Git is powerful, but the command-line workflow can be confusing, especially for new developers.
-
-Git Genius provides:
-- a menu-driven interface
-- guided setup and validation
-- smart handling of common Git problems
-- clear messages instead of cryptic errors
-
-You focus on your code. Git Genius manages the Git workflow.
+```
 
 ---
 
-## Core Features
+## ✨ Core Features
 
-### Project & Repository Management
-- Select any project directory
-- Initialize Git if repository does not exist
-- Work with multiple projects easily
-- Safe confirmation before destructive actions
+### 📂 Project & Repo Management
+* **Smart Init:** Initialize Git if a repository doesn't exist.
+* **Multi-Project Support:** Switch between project directories easily.
+* **Safety First:** Destructive actions always require a confirmation.
 
-### Daily Git Operations
-- Git status
-- Push changes with commit message
-- Pull latest changes
-- Fetch all remotes
-- Switch branch
-- Switch remote
+### 🔄 Daily Operations (Simplified)
+* **Push/Pull:** Handle remotes with clear, guided prompts.
+* **Smart Pull:** Automatically stash -> pull -> pop to prevent merge conflicts on uncommitted work.
+* **Branch/Remote Switching:** No more typing long branch names; just select from a list.
 
-### Smart Workflow Features
-- Smart Pull (auto-stash → pull → restore changes)
-- Stash manager
-  - stash save
-  - stash list
-  - stash pop
-- Undo last commit safely (changes preserved)
+### 🩺 Git Doctor (Health Check)
+The Doctor diagnostic tool checks:
+- [x] Git installation & Internet connectivity.
+- [x] Valid user.name and user.email configuration.
+- [x] GitHub Token validation & API status.
+- [x] Repository integrity and error log detection.
 
-### Guided Setup
-- Step-by-step setup wizard
-- Choose project directory
-- Configure default branch and remote
-- GitHub username or organization support
-- GitHub token help with validation
-- Automatic remote configuration
-
-### Doctor (Health Check)
-- Git installation check
-- Project directory validation
-- Git repository detection
-- Git user.name and user.email check
-- Internet connectivity check
-- GitHub token validation
-- Error log detection with guidance
+### ⏪ Recovery Features
+* **Stash Manager:** Visually save, list, and restore stashes.
+* **Undo Last Commit:** Safely revert your last commit while **keeping your changes** in the workspace.
 
 ---
 
-## Design Philosophy
+## 🖥 Interface Preview
 
-- Menu-based, no command memorization required
-- Safe defaults, explicit confirmations
-- Modular architecture
-- Read-only diagnostics (Doctor never changes data)
-- Clean separation of concerns
+Git Genius transforms your terminal into a guided command center:
 
----
-
-## Future-Upgradable Features (Planned)
-
-- Commit history viewer
-- Amend last commit message
-- Diff viewer (file-wise changes)
-- GitHub repository creation via API
-- Recent projects list
-- Project switcher
-- Plugin-style command extensions
-- CI/CD helper commands
-
-These features are **not promises**, but the architecture is intentionally built to support them.
+```text
+Main Menu:
+  [1] 📋 Status & Changes
+  [2] 🚀 Push to Remote
+  [3] 📥 Smart Pull (Auto-stash)
+  [4] 🌿 Branch Manager
+  [5] 🩺 Run Git Doctor (Health Check)
+  [6] ⚙️  Setup/Configuration
+  [Q] Exit
+```
 
 ---
 
-## Disclaimer
+## 🗺 Roadmap (Future-Ready)
 
-Git Genius is a helper tool, not a replacement for Git knowledge.
-
-- It wraps Git commands; it does not modify Git itself
-- You are still responsible for your repositories
-- Always review actions before confirming
-
-Use responsibly, especially on important repositories.
+Git Genius is built with a modular architecture, ready for these upcoming features:
+- [ ] History Viewer: A scrollable log of your recent commits.
+- [ ] Diff Visualizer: See exactly what changed line-by-line.
+- [ ] GitHub API Integration: Create repositories directly from the CLI.
+- [ ] CI/CD Helper: Quick-start templates for GitHub Actions.
 
 ---
 
-## License
+## ⚖️ Disclaimer & License
 
-Open-source.  
-You are free to learn, modify, and extend.
+**Use Responsibly.** Git Genius is a helper tool, not a replacement for Git knowledge. It wraps Git commands to make them approachable, but you are still the captain of your code. Always review actions before confirming.
+
+Distributed under the **MIT License**.
 
 ---
 
-## Final Note
-
-Git Genius aims to make Git **approachable**, not magical.
-
-If you understand Git better after using this tool,  
-it has done its job.
+### 💡 Final Note
+If you understand Git better after using this tool, **it has done its job.**
