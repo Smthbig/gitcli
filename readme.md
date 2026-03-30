@@ -1,96 +1,169 @@
-# 🧠 Git Genius
+# Git Genius (gitcli)
 
-**Git without the "Grit."** Git Genius is a beginner-friendly, interactive CLI tool that helps you manage your repositories **without memorizing commands.**
+Beginner-friendly interactive Git assistant for daily workflows, setup, and recovery.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
----
+## What It Solves
 
-## 🚀 Why Git Genius?
+- Removes command memorization with guided terminal menus
+- Handles common Git mistakes with safer defaults and confirmations
+- Helps first-time setup for repo, branch, remote, and GitHub token
+- Includes health diagnostics via built-in Doctor checks
 
-Git is powerful, but the command-line workflow can be a maze of cryptic flags and accidental "detached HEAD" nightmares. Git Genius acts as your **intelligent navigator**, providing a menu-driven interface that handles the heavy lifting while you focus on your code.
+## Features
 
-* **Safe for Beginners:** Built-in guardrails and explicit confirmations.
-* **Smart Workflows:** Automated stashing and recovery during pulls.
-* **Built-in Doctor:** One-click health checks for your local environment.
+- **Daily Git Operations:** push, pull, smart pull, fetch, status
+- **Branch and Remote Management:** switch branch and remote safely
+- **Recovery Tools:** stash save/list/pop and undo last commit (keep changes)
+- **Guided Setup:** configure work dir, repo, branch, remote, identity, token
+- **GitHub Linking:** create or link remote repository
+- **Doctor:** validates git install, project state, token, remote, repo status
 
----
+## Installation
 
-## 🛠 Installation
-
-Get up and running in seconds. This one-liner ensures a fresh installation by clearing previous versions.
+### Quick install (recommended)
 
 ```bash
-# Uninstall old version & Install fresh
-curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/uninstall.sh | bash
 curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/install.sh | bash
+```
 
-# Launch the tool
+Then run:
+
+```bash
 git-genius
 ```
 
----
+### Fresh reinstall
 
-## ✨ Core Features
-
-### 📂 Project & Repo Management
-* **Smart Init:** Initialize Git if a repository doesn't exist.
-* **Multi-Project Support:** Switch between project directories easily.
-* **Safety First:** Destructive actions always require a confirmation.
-
-### 🔄 Daily Operations (Simplified)
-* **Push/Pull:** Handle remotes with clear, guided prompts.
-* **Smart Pull:** Automatically stash -> pull -> pop to prevent merge conflicts on uncommitted work.
-* **Branch/Remote Switching:** No more typing long branch names; just select from a list.
-
-### 🩺 Git Doctor (Health Check)
-The Doctor diagnostic tool checks:
-- [x] Git installation & Internet connectivity.
-- [x] Valid user.name and user.email configuration.
-- [x] GitHub Token validation & API status.
-- [x] Repository integrity and error log detection.
-
-### ⏪ Recovery Features
-* **Stash Manager:** Visually save, list, and restore stashes.
-* **Undo Last Commit:** Safely revert your last commit while **keeping your changes** in the workspace.
-
----
-
-## 🖥 Interface Preview
-
-Git Genius transforms your terminal into a guided command center:
-
-```text
-Main Menu:
-  [1] 📋 Status & Changes
-  [2] 🚀 Push to Remote
-  [3] 📥 Smart Pull (Auto-stash)
-  [4] 🌿 Branch Manager
-  [5] 🩺 Run Git Doctor (Health Check)
-  [6] ⚙️  Setup/Configuration
-  [Q] Exit
+```bash
+curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/install.sh | bash
 ```
 
----
+### Update to latest version
 
-## 🗺 Roadmap (Future-Ready)
+The installer is update-aware and exits when already up to date.
 
-Git Genius is built with a modular architecture, ready for these upcoming features:
-- [ ] History Viewer: A scrollable log of your recent commits.
-- [ ] Diff Visualizer: See exactly what changed line-by-line.
-- [ ] GitHub API Integration: Create repositories directly from the CLI.
-- [ ] CI/CD Helper: Quick-start templates for GitHub Actions.
+```bash
+curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/install.sh | bash
+```
 
----
+### Uninstall
 
-## ⚖️ Disclaimer & License
+```bash
+curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/uninstall.sh | bash
+```
 
-**Use Responsibly.** Git Genius is a helper tool, not a replacement for Git knowledge. It wraps Git commands to make them approachable, but you are still the captain of your code. Always review actions before confirming.
+## Commands
 
-Distributed under the **MIT License**.
+- Primary command: `git-genius`
+- Project/repo name: `gitcli` (this repository)
 
----
+If you prefer `gitcli` as command, add an alias:
 
-### 💡 Final Note
-If you understand Git better after using this tool, **it has done its job.**
+```bash
+echo "alias gitcli='git-genius'" >> ~/.zshrc
+source ~/.zshrc
+```
+
+## In-App "Update" Actions
+
+Git Genius has two update paths inside the app:
+
+- **Tools -> Setup / Reconfigure**
+  - Re-runs complete setup and updates branch/remote/token/workdir settings
+- **Tools -> Create / Link GitHub Repository**
+  - Creates or relinks GitHub repository and updates remote URL
+
+## Interface Map
+
+```text
+Main Menu
+1) Daily Git Operations
+2) Branch / Remote
+3) Stash & Undo
+4) Tools
+5) Help / About
+6) Exit
+```
+
+```text
+Daily Git Operations
+1) Push changes (commit + push)
+2) Pull changes
+3) Smart Pull (auto-stash + pull)
+4) Fetch all remotes
+5) Git status
+6) Back
+```
+
+```text
+Tools
+1) Setup / Reconfigure
+2) Create / Link GitHub Repository
+3) Change Project Directory
+4) Doctor (health check)
+5) Back
+```
+
+## Build From Source
+
+Requirements:
+
+- Go 1.21+
+- Git installed
+
+Build:
+
+```bash
+go fmt ./...
+go build -o git-genius ./cmd/genius
+./git-genius
+```
+
+## Project Design (Codebase Overview)
+
+Your project is modular and cleanly separated by responsibility:
+
+- `cmd/genius/main.go`
+  - Entry point, runtime safety env setup, app bootstrap
+- `internal/menu`
+  - Top-level interactive navigation and section routing
+- `internal/setup`
+  - First-time setup, reconfiguration, directory changes, GitHub repo linking
+- `internal/gitops`
+  - Daily operations: push/pull/fetch/smart pull/branch/remote/stash/undo
+- `internal/doctor`
+  - System and repository diagnostics
+- `internal/system`
+  - Git command execution, environment checks, runtime helpers
+- `internal/github`
+  - Token persistence and GitHub API interactions
+- `internal/config`
+  - `.git/.genius/config.json` load/save/default behavior
+- `internal/ui`
+  - Terminal prompts, confirmations, rendering, help strings
+
+Design strengths:
+
+- Clear separation between UI flow and Git/system logic
+- Safe defaults for first-run and restricted environments
+- Config-driven operations across multiple working directories
+- Good extensibility for future sections/features
+
+## Roadmap Ideas
+
+- Commit history viewer and better log UX
+- Rich diff summaries for staged/unstaged changes
+- Non-interactive flags for scripting/automation mode
+- Optional shell autocompletion for command shortcuts
+
+## License
+
+MIT License.
+
+## Note
+
+Git Genius is a helper layer on top of Git. It improves flow and safety, but understanding core Git concepts is still important.

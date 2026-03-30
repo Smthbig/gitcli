@@ -1,15 +1,44 @@
 package setup
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"git-genius/internal/config"
 	"git-genius/internal/github"
 	"git-genius/internal/system"
 	"git-genius/internal/ui"
 )
+
+const debugLogPath = "/home/mohan/coding/gitcli/.cursor/debug-bc08dd.log"
+
+func debugLog(runID, hypothesisID, location, message string, data map[string]interface{}) {
+	entry := map[string]interface{}{
+		"sessionId":    "bc08dd",
+		"runId":        runID,
+		"hypothesisId": hypothesisID,
+		"location":     location,
+		"message":      message,
+		"data":         data,
+		"timestamp":    time.Now().UnixMilli(),
+	}
+
+	b, err := json.Marshal(entry)
+	if err != nil {
+		return
+	}
+
+	_ = os.MkdirAll(filepath.Dir(debugLogPath), 0700)
+	f, err := os.OpenFile(debugLogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = f.Write(append(b, '\n'))
+}
 
 /*
 Stable Production Setup Flow
@@ -24,12 +53,27 @@ func Run() {
 	ui.Header("Git Genius Setup")
 
 	cfg := config.Load()
+	// #region agent log
+	debugLog("pre-fix", "H1", "internal/setup/setup.go:Run", "setup started", map[string]interface{}{
+		"initialWorkDir": cfg.WorkDir,
+		"initialBranch":  cfg.Branch,
+		"initialRemote":  cfg.Remote,
+	})
+	// #endregion
 
 	// STEP 0 — Select project directory
 	if !selectWorkDir(&cfg) {
+		// #region agent log
+		debugLog("pre-fix", "H1", "internal/setup/setup.go:Run", "selectWorkDir returned false", map[string]interface{}{})
+		// #endregion
 		return
 	}
 	config.Save(cfg)
+	// #region agent log
+	debugLog("pre-fix", "H1", "internal/setup/setup.go:Run", "workdir saved", map[string]interface{}{
+		"savedWorkDir": cfg.WorkDir,
+	})
+	// #endregion
 
 	// STEP 1 — Ensure git installed
 	if err := system.EnsureGitInstalled(); err != nil {
@@ -39,8 +83,18 @@ func Run() {
 
 	// STEP 2 — Ensure git repo
 	if !system.EnsureGitRepo() {
+		// #region agent log
+		debugLog("pre-fix", "H2", "internal/setup/setup.go:Run", "EnsureGitRepo returned false", map[string]interface{}{
+			"workDir": cfg.WorkDir,
+		})
+		// #endregion
 		return
 	}
+	// #region agent log
+	debugLog("pre-fix", "H2", "internal/setup/setup.go:Run", "EnsureGitRepo succeeded", map[string]interface{}{
+		"workDir": cfg.WorkDir,
+	})
+	// #endregion
 
 	// STEP 3 — Safe directory
 	system.EnsureSafeDirectory(cfg.WorkDir)
@@ -50,6 +104,11 @@ func Run() {
 
 	// STEP 5 — Git identity
 	if !ensureGitIdentity(cfg.WorkDir) {
+		// #region agent log
+		debugLog("pre-fix", "H3", "internal/setup/setup.go:Run", "ensureGitIdentity returned false", map[string]interface{}{
+			"workDir": cfg.WorkDir,
+		})
+		// #endregion
 		return
 	}
 
@@ -58,8 +117,20 @@ func Run() {
 
 	// STEP 7 — Repo info
 	if !setupRepo(&cfg) {
+		// #region agent log
+		debugLog("pre-fix", "H4", "internal/setup/setup.go:Run", "setupRepo returned false", map[string]interface{}{
+			"owner": cfg.Owner,
+			"repo":  cfg.Repo,
+		})
+		// #endregion
 		return
 	}
+	// #region agent log
+	debugLog("pre-fix", "H4", "internal/setup/setup.go:Run", "setupRepo succeeded", map[string]interface{}{
+		"owner": cfg.Owner,
+		"repo":  cfg.Repo,
+	})
+	// #endregion
 
 	// STEP 8 — Token
 	if !setupGitHubToken() {
@@ -71,12 +142,33 @@ func Run() {
 
 	// STEP 10 — Configure remote
 	if err := configureRemote(&cfg); err != nil {
+		// #region agent log
+		debugLog("pre-fix", "H5", "internal/setup/setup.go:Run", "configureRemote failed", map[string]interface{}{
+			"remote": cfg.Remote,
+			"owner":  cfg.Owner,
+			"repo":   cfg.Repo,
+			"error":  err.Error(),
+		})
+		// #endregion
 		ui.Error("Failed to configure git remote")
 		return
 	}
+	// #region agent log
+	debugLog("pre-fix", "H5", "internal/setup/setup.go:Run", "configureRemote succeeded", map[string]interface{}{
+		"remote": cfg.Remote,
+		"owner":  cfg.Owner,
+		"repo":   cfg.Repo,
+	})
+	// #endregion
 
 	// STEP 11 — Optional first push
 	offerFirstPush(&cfg)
+	// #region agent log
+	debugLog("pre-fix", "H5", "internal/setup/setup.go:Run", "offerFirstPush completed", map[string]interface{}{
+		"remote": cfg.Remote,
+		"branch": cfg.Branch,
+	})
+	// #endregion
 
 	config.Save(cfg)
 
