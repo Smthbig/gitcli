@@ -9,25 +9,26 @@ import (
 UndoLastCommit undoes the last commit but keeps changes staged
 Uses: git reset --soft HEAD~1
 */
-func UndoLastCommit() {
+func UndoLastCommit() bool {
 	if !system.EnsureGitRepo() {
-		return
+		return false
 	}
 
 	if !hasAnyCommit() {
 		ui.Warn("No commits found to undo")
-		return
+		return false
 	}
 
 	if !ui.Confirm("Undo last commit? (changes will be kept)") {
 		ui.Warn("Undo cancelled")
-		return
+		return false
 	}
 
 	if err := system.RunGit("reset", "--soft", "HEAD~1"); err != nil {
 		ui.Error("Failed to undo last commit")
-		return
+		return false
 	}
 
 	ui.Success("Last commit undone (changes preserved)")
+	return true
 }

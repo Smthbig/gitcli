@@ -142,7 +142,8 @@ Your project is modular and cleanly separated by responsibility:
 - `internal/github`
   - Token persistence and GitHub API interactions
 - `internal/config`
-  - `.git/.genius/config.json` load/save/default behavior
+  - Per-repo config at `<repo>/.git/.genius/config.json`
+  - Global active-project state at `~/.git-genius/state.json` for multi-repo switching
 - `internal/ui`
   - Terminal prompts, confirmations, rendering, help strings
 

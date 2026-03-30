@@ -2,7 +2,6 @@ package doctor
 
 import (
 	"os"
-	"path/filepath"
 
 	"git-genius/internal/config"
 	"git-genius/internal/github"
@@ -29,6 +28,7 @@ func Run() {
 	checkRemote()
 	checkGitHubToken()
 	checkGitHubRepo()
+	checkGitCredentialHelper()
 	checkErrorLog()
 
 	ui.Success("Doctor check completed")
@@ -174,19 +174,24 @@ func checkGitHubRepo() {
 }
 
 func checkErrorLog() {
-	cfg := config.Load()
-
-	logPath := filepath.Join(
-		cfg.GetWorkDir(),
-		".git",
-		".genius",
-		"error.log",
-	)
+	logPath := system.ErrorLogPath()
 
 	if _, err := os.Stat(logPath); err == nil {
 		ui.Warn("Error log exists")
 		ui.Info("Check: " + logPath)
 	} else {
 		ui.Success("No error log found")
+	}
+}
+
+func checkGitCredentialHelper() {
+	out, err := system.GitOutput("config", "--global", "--get", "credential.helper")
+	if err != nil || out == "" {
+		return
+	}
+
+	if out == "!/usr/bin/gh auth git-credential" && !system.CommandExists("gh") {
+		ui.Warn("Git credential helper uses gh, but gh is not installed")
+		ui.Info("Push may still work, but auth helper warnings will appear")
 	}
 }

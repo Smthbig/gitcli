@@ -1,12 +1,12 @@
 package setup
 
 import (
-	"os"
 	"path/filepath"
 
 	"git-genius/internal/config"
 	"git-genius/internal/system"
 	"git-genius/internal/ui"
+	"os"
 )
 
 /*
@@ -18,7 +18,6 @@ func ChangeProjectDir() {
 	ui.Header("Change Project Directory")
 
 	cfg := config.Load()
-	origCwd, _ := os.Getwd()
 
 	// Show current directory
 	current := cfg.GetWorkDir()
@@ -46,11 +45,6 @@ func ChangeProjectDir() {
 
 	// Save new workdir
 	cfg.WorkDir = abs
-	// Keep config + error logs synchronized with the chosen workdir.
-	if cfg.WorkDir != "" {
-		_ = os.Chdir(cfg.WorkDir)
-		defer func() { _ = os.Chdir(origCwd) }()
-	}
 	config.Save(cfg)
 
 	ui.Success("Project directory updated")
@@ -83,7 +77,13 @@ func ChangeProjectDir() {
 	// Prepare branch
 	cfg = config.Load()
 	if cfg.Branch != "" {
-		_ = system.RunGit("checkout", "-B", cfg.Branch)
-		ui.Success("Branch prepared: " + cfg.Branch)
+		// Avoid force-reset behavior of -B on existing repos.
+		if err := system.RunGit("checkout", cfg.Branch); err != nil {
+			if err := system.RunGit("checkout", "-b", cfg.Branch); err != nil {
+				ui.Warn("Could not prepare configured branch: " + cfg.Branch)
+				return
+			}
+		}
+		ui.Success("Branch ready: " + cfg.Branch)
 	}
 }

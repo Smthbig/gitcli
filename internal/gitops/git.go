@@ -53,20 +53,22 @@ func CurrentBranch() string {
 // CORE OPERATIONS
 ///////////////////////////////////////////////////////////////
 
-func Status() {
+func Status() bool {
 	if !system.EnsureGitRepo() {
-		return
+		return false
 	}
 
 	if err := system.RunGit("status"); err != nil {
 		ui.Error("Git status failed")
+		return false
 	}
+	return true
 }
 
-func Push(msg string) {
+func Push(msg string) bool {
 
 	if !system.EnsureGitRepo() {
-		return
+		return false
 	}
 
 	ensureSafeDirectory()
@@ -83,36 +85,40 @@ func Push(msg string) {
 
 		if err := system.RunGit("add", "."); err != nil {
 			ui.Error("git add failed")
-			return
+			return false
 		}
 
 		if err := system.RunGit("commit", "-m", msg); err != nil {
 			ui.Error("Initial commit failed")
-			return
+			return false
 		}
 	} else if isWorkingTreeDirty() {
 		// ---------- NORMAL COMMIT ----------
 		if msg == "" {
 			ui.Error("Commit message required")
-			return
+			return false
 		}
 
 		if err := system.RunGit("add", "."); err != nil {
 			ui.Error("git add failed")
-			return
+			return false
 		}
 
 		// Ignore nothing-to-commit safely
-		_ = system.RunGit("commit", "-m", msg)
+		if err := system.RunGit("commit", "-m", msg); err != nil {
+			ui.Error("Commit failed")
+			return false
+		}
 	} else {
 		ui.Warn("Nothing to commit")
+		return true
 	}
 
 	// ---------- REMOTE CHECK ----------
 	if cfg.Remote == "" {
 		ui.Warn("No remote configured")
 		ui.Info("Run setup to configure GitHub repository")
-		return
+		return false
 	}
 
 	branch := CurrentBranch()
@@ -122,53 +128,60 @@ func Push(msg string) {
 
 	if branch == "" {
 		ui.Error("No branch detected")
-		return
+		return false
 	}
 
 	// ---------- PUSH ----------
 	if err := system.RunGit("push", "-u", cfg.Remote, branch); err != nil {
 		ui.Error("Push failed")
-		return
+		return false
 	}
 
 	ui.Success("Changes pushed successfully")
+	return true
 }
 
-func Pull() {
+func Pull() bool {
 
 	if !system.EnsureGitRepo() {
-		return
+		return false
 	}
 
 	cfg := config.Load()
 	if cfg.Remote == "" {
 		ui.Warn("No remote configured")
-		return
+		return false
 	}
 
 	branch := CurrentBranch()
 	if branch == "-" {
 		branch = cfg.Branch
 	}
+	if branch == "" {
+		ui.Error("No branch detected")
+		return false
+	}
 
 	if err := system.RunGit("pull", cfg.Remote, branch); err != nil {
 		ui.Error("Pull failed")
-		return
+		return false
 	}
 
 	ui.Success("Pull completed")
+	return true
 }
 
-func Fetch() {
+func Fetch() bool {
 
 	if !system.EnsureGitRepo() {
-		return
+		return false
 	}
 
 	if err := system.RunGit("fetch", "--all"); err != nil {
 		ui.Error("Fetch failed")
-		return
+		return false
 	}
 
 	ui.Success("Fetched all remotes")
+	return true
 }

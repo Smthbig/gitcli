@@ -11,6 +11,16 @@ const (
 	File = Dir + "/config.json"
 )
 
+const (
+	stateDirName  = ".git-genius"
+	stateFileName = "state.json"
+)
+
+type appState struct {
+	ActiveWorkDir  string   `json:"active_work_dir"`
+	RecentWorkDirs []string `json:"recent_work_dirs"`
+}
+
 // Config holds Git Genius configuration
 type Config struct {
 	/* ---------------- Git basics ---------------- */
@@ -40,18 +50,27 @@ type Config struct {
 
 // Load reads config from disk and applies safe defaults
 func Load() Config {
-	data, err := os.ReadFile(File)
+	dir := preferredWorkDir()
+	data, err := os.ReadFile(configPath(dir))
 	if err != nil {
-		return defaultConfig()
+		c := defaultConfig()
+		c.WorkDir = dir
+		return c
 	}
 
 	var c Config
 	if err := json.Unmarshal(data, &c); err != nil {
-		return defaultConfig()
+		c = defaultConfig()
+		c.WorkDir = dir
+		return c
 	}
 
 	applyDefaults(&c)
 	normalizePaths(&c)
+	if c.WorkDir == "" {
+		c.WorkDir = dir
+	}
+	updateState(c.WorkDir)
 
 	return c
 }
@@ -61,14 +80,20 @@ func Save(c Config) {
 	applyDefaults(&c)
 	normalizePaths(&c)
 
-	_ = os.MkdirAll(Dir, 0700)
+	if c.WorkDir == "" {
+		c.WorkDir = preferredWorkDir()
+	}
+
+	p := configPath(c.WorkDir)
+	_ = os.MkdirAll(filepath.Dir(p), 0700)
 
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return
 	}
 
-	_ = os.WriteFile(File, data, 0600)
+	_ = os.WriteFile(p, data, 0600)
+	updateState(c.WorkDir)
 }
 
 /* ============================================================
@@ -121,6 +146,107 @@ func (c Config) GetWorkDir() string {
 	if c.WorkDir != "" {
 		return c.WorkDir
 	}
+	if d := preferredWorkDir(); d != "" {
+		return d
+	}
 	wd, _ := os.Getwd()
 	return wd
+}
+
+func RecentWorkDirs() []string {
+	s := loadState()
+	out := make([]string, 0, len(s.RecentWorkDirs))
+	for _, d := range s.RecentWorkDirs {
+		if d != "" {
+			if info, err := os.Stat(d); err != nil || !info.IsDir() {
+				continue
+			}
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+func preferredWorkDir() string {
+	s := loadState()
+	if s.ActiveWorkDir != "" {
+		if info, err := os.Stat(s.ActiveWorkDir); err == nil && info.IsDir() {
+			return s.ActiveWorkDir
+		}
+	}
+	wd, _ := os.Getwd()
+	return wd
+}
+
+func configPath(workDir string) string {
+	if workDir == "" {
+		return File
+	}
+	return filepath.Join(workDir, ".git", ".genius", "config.json")
+}
+
+func statePath() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, stateDirName, stateFileName)
+}
+
+func loadState() appState {
+	p := statePath()
+	if p == "" {
+		return appState{}
+	}
+
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return appState{}
+	}
+
+	var s appState
+	if err := json.Unmarshal(data, &s); err != nil {
+		return appState{}
+	}
+	return s
+}
+
+func saveState(s appState) {
+	p := statePath()
+	if p == "" {
+		return
+	}
+
+	_ = os.MkdirAll(filepath.Dir(p), 0700)
+	b, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(p, b, 0600)
+}
+
+func updateState(workDir string) {
+	if workDir == "" {
+		return
+	}
+
+	abs, err := filepath.Abs(workDir)
+	if err != nil {
+		return
+	}
+
+	s := loadState()
+	s.ActiveWorkDir = abs
+
+	next := []string{abs}
+	for _, d := range s.RecentWorkDirs {
+		if d != abs && d != "" {
+			next = append(next, d)
+		}
+		if len(next) >= 10 {
+			break
+		}
+	}
+	s.RecentWorkDirs = next
+	saveState(s)
 }

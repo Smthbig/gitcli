@@ -15,12 +15,17 @@ SmartPull performs:
 
 This prevents pull failures due to local changes.
 */
-func SmartPull() {
+func SmartPull() bool {
 	if !system.EnsureGitRepo() {
-		return
+		return false
 	}
 
 	cfg := config.Load()
+	if cfg.Remote == "" {
+		ui.Warn("No remote configured")
+		ui.Info("Run setup to configure GitHub repository")
+		return false
+	}
 	stashed := false
 
 	// Step 1: Detect uncommitted changes
@@ -29,12 +34,12 @@ func SmartPull() {
 
 		if !ui.Confirm("Auto-stash changes and continue pull?") {
 			ui.Warn("Smart pull cancelled")
-			return
+			return false
 		}
 
 		if err := system.RunGit("stash", "push", "-m", "git-genius-auto-stash"); err != nil {
 			ui.Error("Failed to auto-stash changes")
-			return
+			return false
 		}
 
 		stashed = true
@@ -43,14 +48,23 @@ func SmartPull() {
 
 	// Step 2: Pull latest changes
 	ui.Info("Pulling latest changes...")
-	if err := system.RunGit("pull", cfg.Remote, cfg.Branch); err != nil {
+	branch := CurrentBranch()
+	if branch == "-" || branch == "" {
+		branch = cfg.Branch
+	}
+	if branch == "" {
+		ui.Error("No branch detected")
+		return false
+	}
+
+	if err := system.RunGit("pull", cfg.Remote, branch); err != nil {
 		ui.Error("Pull failed")
 
 		// Try restoring stash if pull failed
 		if stashed {
 			_ = system.RunGit("stash", "pop")
 		}
-		return
+		return false
 	}
 
 	// Step 3: Restore stash if created
@@ -59,10 +73,11 @@ func SmartPull() {
 		if err := system.RunGit("stash", "pop"); err != nil {
 			ui.Warn("Auto-stash could not be applied cleanly")
 			ui.Info("Resolve conflicts manually if needed")
-			return
+			return false
 		}
 		ui.Success("Stashed changes restored")
 	}
 
 	ui.Success("Smart pull completed successfully")
+	return true
 }

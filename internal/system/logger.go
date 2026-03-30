@@ -3,22 +3,26 @@ package system
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
+
+	"git-genius/internal/config"
 )
 
-const (
-	geniusDir = ".git/.genius"
-	errorLog  = geniusDir + "/error.log"
-)
+func ErrorLogPath() string {
+	cfg := config.Load()
+	return filepath.Join(cfg.GetWorkDir(), ".git", ".genius", "error.log")
+}
 
 func LogError(context string, err error) {
 	if err == nil {
 		return
 	}
 
-	os.MkdirAll(geniusDir, 0700)
+	logPath := ErrorLogPath()
+	_ = os.MkdirAll(filepath.Dir(logPath), 0700)
 
-	f, ferr := os.OpenFile(errorLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	f, ferr := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if ferr != nil {
 		return // last-resort: silently fail
 	}

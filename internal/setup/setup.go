@@ -53,7 +53,6 @@ func Run() {
 	ui.Header("Git Genius Setup")
 
 	cfg := config.Load()
-	origCwd, _ := os.Getwd()
 	// #region agent log
 	debugLog("pre-fix", "H1", "internal/setup/setup.go:Run", "setup started", map[string]interface{}{
 		"initialWorkDir": cfg.WorkDir,
@@ -68,12 +67,6 @@ func Run() {
 		debugLog("pre-fix", "H1", "internal/setup/setup.go:Run", "selectWorkDir returned false", map[string]interface{}{})
 		// #endregion
 		return
-	}
-	// Keep config + error logs synchronized with the chosen workdir.
-	// These codepaths use relative paths like ".git/.genius".
-	if cfg.WorkDir != "" {
-		_ = os.Chdir(cfg.WorkDir)
-		defer func() { _ = os.Chdir(origCwd) }()
 	}
 	config.Save(cfg)
 	// #region agent log
@@ -194,6 +187,17 @@ func Run() {
 func selectWorkDir(cfg *config.Config) bool {
 	cwd, _ := os.Getwd()
 	ui.Info("Current directory: " + cwd)
+	recent := config.RecentWorkDirs()
+	if len(recent) > 0 {
+		ui.Info("Recent project directories:")
+		max := len(recent)
+		if max > 3 {
+			max = 3
+		}
+		for i := 0; i < max; i++ {
+			ui.Info(fmt.Sprintf("  %d) %s", i+1, recent[i]))
+		}
+	}
 
 	if cfg.WorkDir == "" {
 		cfg.WorkDir = cwd
@@ -207,6 +211,17 @@ func selectWorkDir(cfg *config.Config) bool {
 	if dir == "" {
 		ui.Error("Directory cannot be empty")
 		return false
+	}
+	switch dir {
+	case "1", "2", "3":
+		idx := int(dir[0] - '1')
+		if idx >= 0 && idx < len(recent) {
+			dir = recent[idx]
+		}
+	}
+	abs, err := filepath.Abs(dir)
+	if err == nil {
+		dir = abs
 	}
 
 	info, err := os.Stat(dir)
@@ -240,7 +255,7 @@ func setupGitBasics(cfg *config.Config) {
 func setupRepo(cfg *config.Config) bool {
 	ui.Header("GitHub Repository")
 
-	defaultRepo := filepath.Base(cfg.WorkDir)
+	defaultRepo := filepath.Base(cfg.GetWorkDir())
 
 	if cfg.Owner == "" {
 		cfg.Owner = ui.Input("GitHub username or organisation")
@@ -342,14 +357,11 @@ func configureRemote(cfg *config.Config) error {
 		cfg.Repo,
 	)
 
-	// Remove existing remote (ignore error)
-	_ = system.RunGit("remote", "remove", cfg.Remote)
-
-	if err := system.RunGit("remote", "add", cfg.Remote, url); err != nil {
-		return err
+	// If remote exists, prefer set-url to avoid leaving remote unset on partial failure.
+	if _, err := system.GitOutput("remote", "get-url", cfg.Remote); err == nil {
+		return system.RunGit("remote", "set-url", cfg.Remote, url)
 	}
-
-	return nil
+	return system.RunGit("remote", "add", cfg.Remote, url)
 }
 
 ///////////////////////////////////////////////////////////////
@@ -404,6 +416,8 @@ func offerFirstPush(cfg *config.Config) {
 		ui.Error("Push failed")
 		return
 	}
+	cfg.FirstPushDone = true
+	config.Save(*cfg)
 
 	ui.Success("Code pushed successfully")
 }

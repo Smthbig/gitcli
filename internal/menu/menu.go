@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"git-genius/internal/config"
 	"git-genius/internal/doctor"
@@ -29,7 +30,7 @@ func Start() {
 		fmt.Println()
 		fmt.Println("Tip: press 'h' for help")
 
-		switch ui.Input("Select option") {
+		switch normalizeChoice(ui.Input("Select option")) {
 		case "1":
 			dailyMenu()
 		case "2":
@@ -50,6 +51,25 @@ func Start() {
 	}
 }
 
+func normalizeChoice(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
+}
+
+func track(section, action string, fn func() bool) {
+	cfg := config.Load()
+	ok := false
+	note := ""
+	defer func() {
+		if r := recover(); r != nil {
+			ok = false
+			note = fmt.Sprintf("panic: %v", r)
+			ui.Error("Unexpected error occurred")
+		}
+		config.RecordHistory(cfg.GetWorkDir(), section, action, ok, note)
+	}()
+	ok = fn()
+}
+
 /* ============================================================
    Context Panel
    ============================================================ */
@@ -65,6 +85,9 @@ func showContext() {
 
 	if cfg.Owner != "" && cfg.Repo != "" {
 		fmt.Println("Repo    :", "https://github.com/"+cfg.Owner+"/"+cfg.Repo)
+	}
+	for _, s := range config.HistorySuggestions(projectDir) {
+		fmt.Println("Suggest :", s)
 	}
 	fmt.Println()
 }
@@ -87,17 +110,17 @@ func dailyMenu() {
 		fmt.Println()
 		fmt.Println("Tip: h = help")
 
-		switch ui.Input("Select option") {
+		switch normalizeChoice(ui.Input("Select option")) {
 		case "1":
-			gitops.Push(ui.Input("Commit message"))
+			track("daily", "push", func() bool { return gitops.Push(ui.Input("Commit message")) })
 		case "2":
-			gitops.Pull()
+			track("daily", "pull", gitops.Pull)
 		case "3":
-			gitops.SmartPull()
+			track("daily", "smart_pull", gitops.SmartPull)
 		case "4":
-			gitops.Fetch()
+			track("daily", "fetch", gitops.Fetch)
 		case "5":
-			gitops.Status()
+			track("daily", "status", gitops.Status)
 		case "6":
 			return
 		case "h", "help", "?":
@@ -124,11 +147,11 @@ func branchMenu() {
 		fmt.Println()
 		fmt.Println("Tip: h = help")
 
-		switch ui.Input("Select option") {
+		switch normalizeChoice(ui.Input("Select option")) {
 		case "1":
-			gitops.SwitchBranch()
+			track("branch", "switch_branch", gitops.SwitchBranch)
 		case "2":
-			gitops.SwitchRemote()
+			track("branch", "switch_remote", gitops.SwitchRemote)
 		case "3":
 			return
 		case "h", "help", "?":
@@ -157,15 +180,15 @@ func stashMenu() {
 		fmt.Println()
 		fmt.Println("Tip: h = help")
 
-		switch ui.Input("Select option") {
+		switch normalizeChoice(ui.Input("Select option")) {
 		case "1":
-			gitops.StashSave()
+			track("stash", "stash_save", gitops.StashSave)
 		case "2":
-			gitops.StashList()
+			track("stash", "stash_list", gitops.StashList)
 		case "3":
-			gitops.StashPop()
+			track("stash", "stash_pop", gitops.StashPop)
 		case "4":
-			gitops.UndoLastCommit()
+			track("stash", "undo_last_commit", gitops.UndoLastCommit)
 		case "5":
 			return
 		case "h", "help", "?":
@@ -194,15 +217,15 @@ func toolsMenu() {
 		fmt.Println()
 		fmt.Println("Tip: h = help")
 
-		switch ui.Input("Select option") {
+		switch normalizeChoice(ui.Input("Select option")) {
 		case "1":
-			setup.Run()
+			track("tools", "setup_reconfigure", func() bool { setup.Run(); return true })
 		case "2":
-			setup.CreateOrLinkRepo()
+			track("tools", "create_or_link_repo", func() bool { setup.CreateOrLinkRepo(); return true })
 		case "3":
-			setup.ChangeProjectDir()
+			track("tools", "change_project_dir", func() bool { setup.ChangeProjectDir(); return true })
 		case "4":
-			doctor.Run()
+			track("tools", "doctor", func() bool { doctor.Run(); return true })
 		case "5":
 			return
 		case "h", "help", "?":

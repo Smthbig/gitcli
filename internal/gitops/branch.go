@@ -9,20 +9,20 @@ import (
 /*
 SwitchBranch switches (or creates) a branch
 */
-func SwitchBranch() {
+func SwitchBranch() bool {
 	if !system.EnsureGitRepo() {
-		return
+		return false
 	}
 
 	name := ui.Input("New branch name")
 	if name == "" {
 		ui.Error("Branch name cannot be empty")
-		return
+		return false
 	}
 
 	if err := system.RunGit("checkout", "-B", name); err != nil {
 		ui.Error("Failed to switch branch")
-		return
+		return false
 	}
 
 	cfg := config.Load()
@@ -30,14 +30,15 @@ func SwitchBranch() {
 	config.Save(cfg)
 
 	ui.Success("Switched to branch: " + name)
+	return true
 }
 
 /*
 SwitchRemote changes git remote
 */
-func SwitchRemote() {
+func SwitchRemote() bool {
 	if !system.EnsureGitRepo() {
-		return
+		return false
 	}
 
 	name := ui.Input("Remote name")
@@ -45,13 +46,13 @@ func SwitchRemote() {
 
 	if name == "" || url == "" {
 		ui.Error("Remote name and URL are required")
-		return
+		return false
 	}
 
 	_ = system.RunGit("remote", "remove", name)
 	if err := system.RunGit("remote", "add", name, url); err != nil {
 		ui.Error("Failed to add remote")
-		return
+		return false
 	}
 
 	cfg := config.Load()
@@ -59,4 +60,5 @@ func SwitchRemote() {
 	config.Save(cfg)
 
 	ui.Success("Remote updated: " + name)
+	return true
 }
