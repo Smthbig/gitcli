@@ -18,6 +18,7 @@ func ChangeProjectDir() {
 	ui.Header("Change Project Directory")
 
 	cfg := config.Load()
+	origCwd, _ := os.Getwd()
 
 	// Show current directory
 	current := cfg.GetWorkDir()
@@ -45,6 +46,11 @@ func ChangeProjectDir() {
 
 	// Save new workdir
 	cfg.WorkDir = abs
+	// Keep config + error logs synchronized with the chosen workdir.
+	if cfg.WorkDir != "" {
+		_ = os.Chdir(cfg.WorkDir)
+		defer func() { _ = os.Chdir(origCwd) }()
+	}
 	config.Save(cfg)
 
 	ui.Success("Project directory updated")

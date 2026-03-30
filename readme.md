@@ -119,7 +119,7 @@ Build:
 
 ```bash
 go fmt ./...
-go build -o git-genius ./cmd/genius
+CGO_ENABLED=0 go build -o git-genius ./cmd/genius
 ./git-genius
 ```
 

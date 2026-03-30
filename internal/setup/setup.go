@@ -53,6 +53,7 @@ func Run() {
 	ui.Header("Git Genius Setup")
 
 	cfg := config.Load()
+	origCwd, _ := os.Getwd()
 	// #region agent log
 	debugLog("pre-fix", "H1", "internal/setup/setup.go:Run", "setup started", map[string]interface{}{
 		"initialWorkDir": cfg.WorkDir,
@@ -67,6 +68,12 @@ func Run() {
 		debugLog("pre-fix", "H1", "internal/setup/setup.go:Run", "selectWorkDir returned false", map[string]interface{}{})
 		// #endregion
 		return
+	}
+	// Keep config + error logs synchronized with the chosen workdir.
+	// These codepaths use relative paths like ".git/.genius".
+	if cfg.WorkDir != "" {
+		_ = os.Chdir(cfg.WorkDir)
+		defer func() { _ = os.Chdir(origCwd) }()
 	}
 	config.Save(cfg)
 	// #region agent log
@@ -295,16 +302,24 @@ func setupGitHubToken() bool {
 ///////////////////////////////////////////////////////////////
 
 func ensureGitHubRepo(cfg *config.Config) {
+	// Best-effort existence check to avoid noisy 422 errors.
+	exists, err := github.RepoExists(cfg.Owner, cfg.Repo)
+	if err == nil && exists {
+		ui.Success("GitHub repository already exists")
+		return
+	}
+
+	// If verification failed, fall back to user-driven create flow.
 	if !ui.Confirm("Create repository on GitHub if not exists?") {
 		return
 	}
 
 	private := ui.Confirm("Make repository PRIVATE?")
 
-	err := github.CreateRepo(cfg.Owner, cfg.Repo, private)
-	if err != nil {
+	createErr := github.CreateRepo(cfg.Owner, cfg.Repo, private)
+	if createErr != nil {
 		ui.Warn("Repository creation failed:")
-		ui.Info(err.Error())
+		ui.Info(createErr.Error())
 		return
 	}
 
@@ -357,8 +372,23 @@ func offerFirstPush(cfg *config.Config) {
 		return
 	}
 
-	// Commit may fail if nothing to commit
-	_ = system.RunGit("commit", "-m", msg)
+	// Avoid pushing without a real first commit.
+	// Common case: empty repo => "nothing to commit" after `git add .`.
+	stagedNames, err := system.GitOutput("diff", "--cached", "--name-only")
+	if err != nil {
+		ui.Error("Failed to check staged changes")
+		return
+	}
+	if stagedNames == "" {
+		ui.Warn("Nothing to commit yet (working tree is empty)")
+		ui.Info("Add at least one file, then push again.")
+		return
+	}
+
+	if err := system.RunGit("commit", "-m", msg); err != nil {
+		ui.Error("Initial commit failed")
+		return
+	}
 
 	branch := system.CurrentGitBranch()
 	if branch == "" {
