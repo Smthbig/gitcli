@@ -2,7 +2,6 @@ package menu
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -14,40 +13,54 @@ import (
 	"git-genius/internal/ui"
 )
 
-func Start() {
+func Start(appVersion string, gitAvailable bool) {
+	maybeOfferSetup(gitAvailable)
+
 	for {
 		ui.Clear()
-		ui.Header("Git Genius v1.0")
+		ui.Header(headerTitle(appVersion, gitAvailable))
 
-		showContext()
+		showContext(gitAvailable)
 
-		fmt.Println("1) Daily Git Operations")
-		fmt.Println("2) Branch / Remote")
-		fmt.Println("3) Stash & Undo")
-		fmt.Println("4) Tools")
-		fmt.Println("5) Help / About")
-		fmt.Println("6) Exit")
-		fmt.Println()
-		fmt.Println("Tip: press 'h' for help")
-
-		switch normalizeChoice(ui.Input("Select option")) {
-		case "1":
-			dailyMenu()
-		case "2":
-			branchMenu()
-		case "3":
-			stashMenu()
-		case "4":
-			toolsMenu()
-		case "5", "h", "help", "?":
-			mainHelp()
-		case "6":
-			ui.Info("Goodbye 👋")
-			os.Exit(0)
-		default:
-			ui.Error("Invalid option")
-			ui.Pause()
+		if gitAvailable {
+			if !mainMenu() {
+				return
+			}
+			continue
 		}
+
+		if !limitedMenu() {
+			return
+		}
+	}
+}
+
+func headerTitle(appVersion string, gitAvailable bool) string {
+	version := strings.TrimSpace(appVersion)
+	if version == "" {
+		version = "dev"
+	}
+
+	title := "Git Genius v" + version
+	if !gitAvailable {
+		title += " (Limited Mode)"
+	}
+	return title
+}
+
+func maybeOfferSetup(gitAvailable bool) {
+	if !gitAvailable {
+		return
+	}
+
+	cfg := config.Load()
+	if config.HasProjectConfig(cfg.GetWorkDir()) || len(config.RecentHistory(1)) > 0 {
+		return
+	}
+
+	ui.Info("No Git Genius setup found for this project yet")
+	if setup.Run() {
+		ui.Pause()
 	}
 }
 
@@ -70,18 +83,19 @@ func track(section, action string, fn func() bool) {
 	ok = fn()
 }
 
-/* ============================================================
-   Context Panel
-   ============================================================ */
-
-func showContext() {
+func showContext(gitAvailable bool) {
 	cfg := config.Load()
 	projectDir := cfg.GetWorkDir()
 
 	fmt.Println("Project :", filepath.Base(projectDir))
 	fmt.Println("Path    :", projectDir)
-	fmt.Println("Branch  :", gitops.CurrentBranch())
-	fmt.Println("Remote  :", system.CurrentRemote())
+
+	if gitAvailable {
+		fmt.Println("Branch  :", gitops.CurrentBranch())
+		fmt.Println("Remote  :", system.CurrentRemote())
+	} else {
+		fmt.Println("Mode    :", "Limited (Git unavailable)")
+	}
 
 	if cfg.Owner != "" && cfg.Repo != "" {
 		fmt.Println("Repo    :", "https://github.com/"+cfg.Owner+"/"+cfg.Repo)
@@ -90,6 +104,67 @@ func showContext() {
 		fmt.Println("Suggest :", s)
 	}
 	fmt.Println()
+}
+
+func mainMenu() bool {
+	fmt.Println("1) Daily Git Operations")
+	fmt.Println("2) Branch / Remote")
+	fmt.Println("3) Stash & Undo")
+	fmt.Println("4) Tools")
+	fmt.Println("5) Help / About")
+	fmt.Println("6) Exit")
+	fmt.Println()
+	fmt.Println("Tip: press 'h' for help")
+
+	switch normalizeChoice(ui.Input("Select option")) {
+	case "1":
+		dailyMenu()
+	case "2":
+		branchMenu()
+	case "3":
+		stashMenu()
+	case "4":
+		toolsMenu(true)
+	case "5", "h", "help", "?":
+		mainHelp()
+	case "6":
+		ui.Info("Goodbye")
+		return false
+	default:
+		ui.Error("Invalid option")
+		ui.Pause()
+	}
+
+	return true
+}
+
+func limitedMenu() bool {
+	fmt.Println("1) Setup / Reconfigure")
+	fmt.Println("2) Change Project Directory")
+	fmt.Println("3) Doctor (health check)")
+	fmt.Println("4) Help / About")
+	fmt.Println("5) Exit")
+	fmt.Println()
+	fmt.Println("Tip: install Git to unlock daily operations")
+
+	switch normalizeChoice(ui.Input("Select option")) {
+	case "1":
+		track("tools", "setup_reconfigure", setup.Run)
+	case "2":
+		track("tools", "change_project_dir", setup.ChangeProjectDir)
+	case "3":
+		track("tools", "doctor", doctor.Run)
+	case "4", "h", "help", "?":
+		mainHelp()
+	case "5":
+		ui.Info("Goodbye")
+		return false
+	default:
+		ui.Error("Invalid option")
+		ui.Pause()
+	}
+
+	return true
 }
 
 /* ============================================================
@@ -141,9 +216,10 @@ func branchMenu() {
 		ui.Clear()
 		ui.Header("Branch / Remote")
 
-		fmt.Println("1) Switch branch")
-		fmt.Println("2) Switch remote")
-		fmt.Println("3) Back")
+		fmt.Println("1) Switch to existing branch")
+		fmt.Println("2) Create new branch")
+		fmt.Println("3) Configure remote")
+		fmt.Println("4) Back")
 		fmt.Println()
 		fmt.Println("Tip: h = help")
 
@@ -151,8 +227,10 @@ func branchMenu() {
 		case "1":
 			track("branch", "switch_branch", gitops.SwitchBranch)
 		case "2":
-			track("branch", "switch_remote", gitops.SwitchRemote)
+			track("branch", "create_branch", gitops.CreateBranch)
 		case "3":
+			track("branch", "switch_remote", gitops.SwitchRemote)
+		case "4":
 			return
 		case "h", "help", "?":
 			sectionHelp("Branch / Remote", ui.HelpBranch)
@@ -204,30 +282,51 @@ func stashMenu() {
    Tools
    ============================================================ */
 
-func toolsMenu() {
+func toolsMenu(gitAvailable bool) {
 	for {
 		ui.Clear()
 		ui.Header("Tools")
 
 		fmt.Println("1) Setup / Reconfigure")
-		fmt.Println("2) Create / Link GitHub Repository")
-		fmt.Println("3) Change Project Directory")
-		fmt.Println("4) Doctor (health check)")
-		fmt.Println("5) Back")
+		if gitAvailable {
+			fmt.Println("2) Create / Link GitHub Repository")
+			fmt.Println("3) Change Project Directory")
+			fmt.Println("4) Doctor (health check)")
+			fmt.Println("5) Back")
+		} else {
+			fmt.Println("2) Change Project Directory")
+			fmt.Println("3) Doctor (health check)")
+			fmt.Println("4) Back")
+		}
 		fmt.Println()
 		fmt.Println("Tip: h = help")
 
 		switch normalizeChoice(ui.Input("Select option")) {
 		case "1":
-			track("tools", "setup_reconfigure", func() bool { setup.Run(); return true })
+			track("tools", "setup_reconfigure", setup.Run)
 		case "2":
-			track("tools", "create_or_link_repo", func() bool { setup.CreateOrLinkRepo(); return true })
+			if gitAvailable {
+				track("tools", "create_or_link_repo", setup.CreateOrLinkRepo)
+			} else {
+				track("tools", "change_project_dir", setup.ChangeProjectDir)
+			}
 		case "3":
-			track("tools", "change_project_dir", func() bool { setup.ChangeProjectDir(); return true })
+			if gitAvailable {
+				track("tools", "change_project_dir", setup.ChangeProjectDir)
+			} else {
+				track("tools", "doctor", doctor.Run)
+			}
 		case "4":
-			track("tools", "doctor", func() bool { doctor.Run(); return true })
+			if gitAvailable {
+				track("tools", "doctor", doctor.Run)
+			} else {
+				return
+			}
 		case "5":
-			return
+			if gitAvailable {
+				return
+			}
+			ui.Error("Invalid option")
 		case "h", "help", "?":
 			sectionHelp("Tools", ui.HelpTools)
 		default:

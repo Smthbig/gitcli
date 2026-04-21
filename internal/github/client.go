@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -24,8 +25,12 @@ NewClient:
 - Safe for repeated calls
 */
 func NewClient() (*Client, error) {
-
 	token := GetToken()
+	return NewClientWithToken(token)
+}
+
+func NewClientWithToken(token string) (*Client, error) {
+	token = strings.TrimSpace(token)
 	if token == "" {
 		return nil, errors.New("github token not configured")
 	}
@@ -36,6 +41,14 @@ func NewClient() (*Client, error) {
 		},
 		token: token,
 	}, nil
+}
+
+func ValidateToken(token string) (string, error) {
+	client, err := NewClientWithToken(token)
+	if err != nil {
+		return "", err
+	}
+	return client.GetAuthenticatedUser()
 }
 
 /*

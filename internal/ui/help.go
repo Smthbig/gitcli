@@ -20,7 +20,7 @@ var HelpMain = []string{
 	"h / help / ?",
 	"   - Show this help screen",
 	"",
-	"5) Exit",
+	"6) Exit",
 	"   - Quit Git Genius",
 }
 
@@ -53,13 +53,16 @@ var HelpDaily = []string{
 // ============================================================
 
 var HelpBranch = []string{
-	"Switch Branch",
-	"- Create a new branch or switch to existing one",
+	"Switch to Existing Branch",
+	"- Choose from local branches without resetting branch history",
 	"- Automatically updates config branch",
 	"",
-	"Switch Remote",
-	"- Change where your code is pushed",
-	"- Useful when moving between GitHub repos",
+	"Create New Branch",
+	"- Creates a branch only when it does not already exist",
+	"",
+	"Configure Remote",
+	"- Select an existing remote or safely add/update one",
+	"- Existing remotes are updated with set-url instead of remove/add",
 }
 
 // ============================================================
@@ -96,10 +99,11 @@ var HelpTools = []string{
 	"Create / Link GitHub Repository",
 	"- Create repo on GitHub if missing",
 	"- Link local project to GitHub",
+	"- Works even if you only want to repair the local remote URL",
 	"",
 	"Change Project Directory",
 	"- Switch to another project folder",
-	"- Useful when managing multiple repos",
+	"- Shows recent projects for faster switching",
 	"",
 	"Doctor",
 	"- Checks git, branch, remote, token, repo",
@@ -118,6 +122,7 @@ var HelpGitHub = []string{
 	"- Used for authentication (instead of password)",
 	"- Create at: https://github.com/settings/tokens",
 	"- Required scope: repo",
+	"- Automation option: GIT_GENIUS_GITHUB_TOKEN",
 	"",
 	"GitHub Repository",
 	"- Online copy of your project",

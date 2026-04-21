@@ -24,17 +24,12 @@ type appState struct {
 // Config holds Git Genius configuration
 type Config struct {
 	/* ---------------- Git basics ---------------- */
-	Branch        string `json:"branch"`
-	DefaultBranch string `json:"default_branch"` // main / master
-	Remote        string `json:"remote"`
+	Branch string `json:"branch"`
+	Remote string `json:"remote"`
 
 	/* ---------------- GitHub repo ---------------- */
-	Owner       string `json:"owner"`        // username or organisation
-	Repo        string `json:"repo"`         // repository name
-	IsOrgRepo   bool   `json:"is_org_repo"`  // user vs org
-	OrgName     string `json:"org_name"`     // organisation name
-	PrivateRepo bool   `json:"private_repo"` // public / private
-	RepoCreated bool   `json:"repo_created"` // GitHub repo exists or not
+	Owner string `json:"owner"` // username or organisation
+	Repo  string `json:"repo"`  // repository name
 
 	/* ---------------- Push state ---------------- */
 	FirstPushDone bool `json:"first_push_done"`
@@ -85,14 +80,16 @@ func Save(c Config) {
 	}
 
 	p := configPath(c.WorkDir)
-	_ = os.MkdirAll(filepath.Dir(p), 0700)
+	gitDir := filepath.Join(c.WorkDir, ".git")
+	if info, err := os.Stat(gitDir); err == nil && info.IsDir() {
+		_ = os.MkdirAll(filepath.Dir(p), 0700)
 
-	data, err := json.MarshalIndent(c, "", "  ")
-	if err != nil {
-		return
+		data, err := json.MarshalIndent(c, "", "  ")
+		if err == nil {
+			_ = os.WriteFile(p, data, 0600)
+		}
 	}
 
-	_ = os.WriteFile(p, data, 0600)
 	updateState(c.WorkDir)
 }
 
@@ -103,14 +100,9 @@ func Save(c Config) {
 func defaultConfig() Config {
 	return Config{
 		Branch:        "main",
-		DefaultBranch: "main",
 		Remote:        "origin",
 		Owner:         "",
 		Repo:          "",
-		IsOrgRepo:     false,
-		OrgName:       "",
-		PrivateRepo:   false,
-		RepoCreated:   false,
 		FirstPushDone: false,
 		WorkDir:       "",
 	}
@@ -120,9 +112,6 @@ func defaultConfig() Config {
 func applyDefaults(c *Config) {
 	if c.Branch == "" {
 		c.Branch = "main"
-	}
-	if c.DefaultBranch == "" {
-		c.DefaultBranch = c.Branch
 	}
 	if c.Remote == "" {
 		c.Remote = "origin"
@@ -183,6 +172,15 @@ func configPath(workDir string) string {
 		return File
 	}
 	return filepath.Join(workDir, ".git", ".genius", "config.json")
+}
+
+func HasProjectConfig(workDir string) bool {
+	if workDir == "" {
+		workDir = preferredWorkDir()
+	}
+
+	info, err := os.Stat(configPath(workDir))
+	return err == nil && !info.IsDir()
 }
 
 func statePath() string {

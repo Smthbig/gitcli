@@ -1,11 +1,401 @@
-1. Select directory
-2. EnsureGitRepo
-3. EnsureSafeDirectory
-4. EnsureBranchSync
-5. EnsureGitIdentity
-6. Ask Owner
-7. Ask Repo Name (default = folder name, but editable)
-8. Ask Token (only store, don’t validate)
-9. Try repo create (if fails → warn, continue)
-10. Configure remote (without token in URL)
-11. First push
+Git Genius Roadmap, User Flow, and Codebase Analysis
+Analyzed on: 2026-04-21
+
+Baseline
+- `go build ./cmd/genius` passes.
+- `go test ./...` passes and now includes automated coverage for config, history, token precedence, and git safety helpers.
+
+Status Update
+- A stabilization pass has now been implemented for the codebase.
+- Completed items:
+  - removed hard-coded setup debug logging
+  - unified branch-sync behavior into one implementation
+  - replaced unsafe branch switching with safe switch/create flows
+  - replaced remove/add remote flow with safe update logic
+  - added real secret token input on Linux and env-token support via `GIT_GENIUS_GITHUB_TOKEN`
+  - added `--version` support plus a repository `VERSION` file
+  - aligned installer, uninstaller, and build scripts with versioned builds
+  - added initial automated tests for config, history, token precedence, and git safety helpers
+- Remaining roadmap phases below should now be treated as follow-up work after this stabilization release.
+
+1. Product Summary
+
+Git Genius is a beginner-focused interactive Git CLI written in Go. The current product already covers:
+- first-time project setup and reconfiguration
+- daily Git operations (`push`, `pull`, `smart pull`, `fetch`, `status`)
+- branch and remote management
+- stash and undo workflows
+- GitHub token storage and repository creation/linking
+- doctor-style diagnostics
+- multi-project state through an active work directory plus recent directories
+
+The product is already beyond a simple setup wizard. The roadmap and user flow should reflect that broader shape.
+
+2. Current Codebase Map
+
+Entry and navigation
+- `cmd/genius/main.go`
+  - app bootstrap
+  - git availability check
+  - launches interactive menu
+- `internal/menu/menu.go`
+  - top-level navigation
+  - section routing
+  - action history tracking
+
+Setup and onboarding
+- `internal/setup/setup.go`
+  - full setup / reconfigure flow
+  - work directory selection
+  - git identity setup
+  - GitHub repo target setup
+  - optional token save
+  - optional repo creation
+  - remote configuration
+  - optional first push
+- `internal/setup/github_repo.go`
+  - create or link repository flow
+- `internal/setup/change_dir.go`
+  - active project switching
+
+Daily operations
+- `internal/gitops/git.go`
+  - push, pull, fetch, status
+- `internal/gitops/smart_pull.go`
+  - stash, pull, restore flow
+- `internal/gitops/branch.go`
+  - branch and remote switching
+- `internal/gitops/stash.go`
+  - stash save / list / pop
+- `internal/gitops/undo.go`
+  - undo last commit
+
+Diagnostics and infrastructure
+- `internal/doctor/doctor.go`
+  - health checks for git, repo, branch, identity, remote, token, repo existence, credential helper, error log
+- `internal/system/*.go`
+  - git command execution
+  - runtime restrictions
+  - install checks
+  - error logging
+- `internal/github/*.go`
+  - token persistence
+  - authenticated GitHub API requests
+  - repo existence and creation
+- `internal/config/*.go`
+  - repo-local config in `.git/.genius/config.json`
+  - global state in `~/.git-genius/state.json`
+  - action history in `~/.git-genius/history.jsonl`
+- `internal/ui/*.go`
+  - prompts, confirmations, rendering, help text
+
+3. Correct Top-Level User Flow Structure
+
+The current `Roadmap.txt` only describes setup. That is too narrow. The correct structure for this codebase is:
+
+Launch
+-> Preflight
+-> Resolve active project context
+-> Main Menu
+-> Task-specific flow
+-> Return to Main Menu
+
+Recommended top-level UX map:
+
+1. Launch app
+2. Check whether Git is available
+3. Load active project directory and repo-local config
+4. Show current context:
+   - project
+   - path
+   - branch
+   - remote
+   - repo URL if configured
+   - history-based suggestion
+5. Route user into one of five sections:
+   - Daily Git Operations
+   - Branch / Remote
+   - Stash & Undo
+   - Tools
+   - Help / About
+6. Return to main menu after each action
+
+Correct section responsibilities:
+- Daily Git Operations
+  - commit/push
+  - pull
+  - smart pull
+  - fetch
+  - status
+- Branch / Remote
+  - branch changes
+  - remote changes
+- Stash & Undo
+  - temporary save/restore work
+  - undo last commit
+- Tools
+  - setup / reconfigure
+  - create or link GitHub repository
+  - change project directory
+  - doctor
+- Help / About
+  - explain product concepts and menu actions
+
+4. Correct Detailed User Flows
+
+4.1 First Run / New Project Flow
+
+This should be treated as the primary onboarding journey:
+
+1. Launch app
+2. If Git is missing:
+   - on restricted runtime: show limited mode warning and offer only setup/help/doctor paths
+   - on normal runtime: require installation before continuing
+3. Resolve working directory:
+   - current directory
+   - recent project directory
+   - manually entered directory
+4. Validate directory
+5. Validate or initialize Git repository
+6. Add safe directory entry if needed
+7. Detect existing branch and reconcile with configured branch
+8. Ensure Git identity exists
+9. Collect branch and remote defaults
+10. Collect GitHub owner and repo name
+11. Optionally collect and validate GitHub token
+12. Optionally create GitHub repository
+13. Configure remote URL
+14. Optionally perform first commit and first push
+15. Save repo config and return to main menu
+
+Important correction:
+- setup is not only "select directory -> create repo -> push"
+- setup is a full repo bootstrap and state-initialization flow
+
+4.2 Returning User / Daily Workflow
+
+This should be the default repeat-use journey:
+
+1. Launch app
+2. Review context panel
+3. If health warning exists, use Doctor first
+4. If local work is dirty and remote may have changed, use Smart Pull
+5. Make changes in editor outside the app
+6. Use Push changes with commit message
+7. Return to main menu
+
+Ideal guidance order:
+- `Status`
+- `Smart Pull`
+- edit code
+- `Push changes`
+
+4.3 GitHub Linking / Re-Linking Flow
+
+This should be treated as a separate flow from full setup:
+
+1. Ensure active directory is a Git repo
+2. Load current owner, repo, and remote config
+3. Ask for missing owner/repo values
+4. If token exists:
+   - verify remote repo
+   - optionally create missing repo
+5. Configure or update remote URL safely
+6. Save config
+7. Direct user to push flow
+
+Important correction:
+- linking a remote should not require the same amount of work as first-time setup
+
+4.4 Branch Management Flow
+
+Correct branch flow should be:
+
+1. View current branch
+2. Choose one action:
+   - switch to existing branch
+   - create new branch
+3. Update config branch
+4. Return to daily operations
+
+Important correction:
+- branch switching must not force-reset an existing branch
+
+4.5 Recovery Flow
+
+Correct recovery path:
+
+1. Uncommitted work blocking pull
+   - use stash or smart pull
+2. Need to inspect saved work
+   - list stashes
+3. Ready to restore
+   - pop stash
+4. Last commit was wrong
+   - undo last commit but keep changes
+5. Something feels broken
+   - run Doctor
+
+4.6 Multi-Project Flow
+
+1. Open Tools
+2. Change Project Directory
+3. Select current / recent / manual path
+4. Load per-repo config for that directory
+5. If repo missing:
+   - offer init
+   - then continue to setup
+6. Return to main menu with updated context panel
+
+Important correction:
+- multi-project support is already part of the product and should be treated as a first-class flow
+
+5. Current Strengths
+
+- Clean package separation by responsibility
+- Main menu and section map are easy to understand
+- Setup flow is already fairly complete for beginner use
+- Config model supports both repo-local and user-global state
+- Doctor feature gives the product a strong support/debug story
+- Smart Pull is a useful beginner-friendly abstraction
+- History suggestions create a path toward adaptive guidance
+
+6. Current Gaps and Risks
+
+The next roadmap should be driven by these issues, not by adding random features first.
+
+Critical correctness and UX issues
+- `internal/setup/setup.go` contains hard-coded debug logging to a developer machine path.
+- There are two different branch-sync implementations:
+  - `internal/gitops/branch_sync.go`
+  - `internal/system/git.go`
+  This should be unified into one source of truth.
+- `internal/gitops/branch.go` uses `git checkout -B`, which can reset an existing branch pointer and is not a safe "switch branch" implementation.
+- `internal/gitops/branch.go` removes a remote before re-adding it. If add fails, the old remote is lost.
+- `internal/ui/ui.go` implements `SecretInput` exactly like normal input, so token entry is not actually hidden.
+- `cmd/genius/main.go` has no version flag, but `install.sh` expects `git-genius --version`.
+- `install.sh` also expects a remote `VERSION` file, but the repository currently does not expose that in the codebase.
+- `uninstall.sh` removes `~/.config/git-genius`, while runtime state and token are stored in `~/.git-genius`.
+
+Structural consistency issues
+- Several config fields exist but are not fully used in current flows:
+  - `IsOrgRepo`
+  - `OrgName`
+  - `PrivateRepo`
+  - `RepoCreated`
+- `internal/system/checks.go` contains an unfinished network-check section and an unused `Online` variable.
+- The app can continue in restricted mode when Git is missing, but the menu still exposes actions that mostly depend on Git.
+- `CreateOrLinkRepo` currently requires a configured token even when the user may only want to add or fix a remote URL.
+
+Engineering gaps
+- No automated tests exist yet.
+- Git execution, GitHub API, and UI prompting are tightly coupled, which makes testing harder.
+- There is no explicit non-interactive or scripting mode.
+- There is no release/versioning path fully aligned with the installer.
+
+7. Recommended Product Direction
+
+Do not prioritize feature expansion first.
+First stabilize correctness, safety, setup clarity, and release consistency.
+
+8. Prioritized Roadmap
+
+Phase 0: Stabilize the foundation
+- Remove hard-coded debug logging from setup or gate it behind a real debug mode.
+- Unify branch-sync behavior into one implementation.
+- Replace unsafe branch switching with:
+  - list existing branches
+  - switch to existing branch safely
+  - create new branch separately
+- Replace remove-then-add remote flow with safer update logic:
+  - `set-url` when remote exists
+  - `add` only when remote is missing
+- Make token input actually secret or support environment-based token entry.
+- Add `--version` support and align it with installer expectations.
+- Fix installer/uninstaller path mismatches.
+
+Phase 1: Repair onboarding and setup flow
+- Make first-run detection explicit and send first-time users directly toward setup.
+- Improve limited-mode UX when Git is unavailable.
+- Add retry loops for invalid directory, owner, repo, and token input.
+- Make link-only GitHub flow possible without mandatory token entry.
+- Clarify branch reconciliation during setup:
+  - detect existing branch
+  - ask whether to adopt it or rename it
+- Persist only config fields that are actually used, or fully implement the unused fields.
+
+Phase 2: Make daily workflows safer
+- Add pre-push checks:
+  - remote configured
+  - branch detected
+  - upstream available
+- Improve pull/push error guidance with actionable next steps.
+- Add branch list and remote list before asking for manual text input.
+- Add clearer stash conflict guidance when `stash pop` fails.
+- Add status summary before commit/push.
+
+Phase 3: Strengthen multi-project and discoverability
+- Improve recent-project switching UX.
+- Add last action / recent history view in Tools.
+- Expand context-aware suggestions using history and repo state.
+- Improve Help so it explains recommended workflows, not only command meanings.
+- Route failure states toward Setup or Doctor automatically.
+
+Phase 4: Make the codebase testable
+- Introduce interfaces around git command execution and GitHub API calls.
+- Add unit tests for:
+  - config load/save/state resolution
+  - history suggestion logic
+  - setup decisions
+  - branch/remote safety behavior
+- Add integration-style tests around a temporary Git repo.
+- Add CI checks for build, fmt, and tests.
+
+Phase 5: Release and packaging maturity
+- Define real semantic versioning.
+- Add a generated version value during build.
+- Align installer, binary naming, and repo metadata.
+- Add release artifacts per OS/arch instead of relying on a single raw binary path.
+- Add smoke tests for install and uninstall scripts.
+
+Phase 6: Feature expansion after stability
+- Commit history viewer
+- Diff summaries for staged and unstaged changes
+- Guided conflict resolution help
+- Optional non-interactive flags for power users
+- Shell completion / shortcut support
+
+9. Recommended Immediate Milestone
+
+The next milestone should be a stabilization release, not a feature release.
+
+Suggested scope for the next version:
+- remove debug-path logging
+- unify branch-sync logic
+- fix safe branch switching
+- fix safe remote switching
+- implement real secret token input
+- add `--version`
+- fix installer/uninstaller path assumptions
+- add the first automated tests
+
+10. Definition of Done for the Next Milestone
+
+The next release should be considered complete only when:
+- first-time setup works on a clean local repo
+- existing repo linking works without damaging current remotes
+- branch switching cannot reset an existing branch unexpectedly
+- installer version checks match actual binary behavior
+- uninstall removes actual runtime state locations
+- at least core setup/config/git safety paths have automated tests
+
+11. Summary
+
+Git Genius already has the skeleton of a useful beginner Git assistant. The biggest need is not more menu items. The biggest need is product hardening:
+- safer branch and remote behavior
+- cleaner onboarding logic
+- consistent release/install behavior
+- removal of leftover debug code
+- real test coverage
+
+After that, richer Git features will be much easier to add without increasing risk.

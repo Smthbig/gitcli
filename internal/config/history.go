@@ -122,7 +122,7 @@ func HistorySuggestions(workDir string) []string {
 		out = append(out, "You push often without pulling. Use Smart Pull before push to avoid conflicts.")
 	}
 	if changeDirCount >= 2 {
-		out = append(out, "You switch repos often. Use Setup recent-directory shortcuts (1/2/3).")
+		out = append(out, "You switch repos often. Use recent-directory shortcuts in Setup or Change Project Directory.")
 	}
 	if len(out) == 0 {
 		out = append(out, "Workflow looks healthy. Continue with Daily Git Operations.")
@@ -137,4 +137,3 @@ func historyPath() string {
 	}
 	return filepath.Join(home, ".git-genius", "history.jsonl")
 }
-

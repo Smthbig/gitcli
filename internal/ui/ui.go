@@ -38,10 +38,18 @@ func Input(label string) string {
 	return strings.TrimSpace(text)
 }
 
-func SecretInput(label string) string {
-	fmt.Print(Cyan + label + ": " + Reset)
+func InputDefault(label, defaultValue string) string {
+	if strings.TrimSpace(defaultValue) == "" {
+		return Input(label)
+	}
+
+	fmt.Print(Cyan + label + " [" + defaultValue + "]: " + Reset)
 	text, _ := reader.ReadString('\n')
-	return strings.TrimSpace(text)
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return defaultValue
+	}
+	return text
 }
 
 func Confirm(question string) bool {

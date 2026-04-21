@@ -15,10 +15,11 @@ Beginner-friendly interactive Git assistant for daily workflows, setup, and reco
 ## Features
 
 - **Daily Git Operations:** push, pull, smart pull, fetch, status
-- **Branch and Remote Management:** switch branch and remote safely
+- **Branch and Remote Management:** switch existing branches, create branches, and update remotes safely
 - **Recovery Tools:** stash save/list/pop and undo last commit (keep changes)
 - **Guided Setup:** configure work dir, repo, branch, remote, identity, token
 - **GitHub Linking:** create or link remote repository
+- **Automation-Friendly Auth:** supports `GIT_GENIUS_GITHUB_TOKEN`
 - **Doctor:** validates git install, project state, token, remote, repo status
 
 ## Installation
@@ -59,6 +60,7 @@ curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/uninstall.sh | 
 ## Commands
 
 - Primary command: `git-genius`
+- Version command: `git-genius --version`
 - Project/repo name: `gitcli` (this repository)
 
 If you prefer `gitcli` as command, add an alias:
@@ -100,6 +102,14 @@ Daily Git Operations
 ```
 
 ```text
+Branch / Remote
+1) Switch to existing branch
+2) Create new branch
+3) Configure remote
+4) Back
+```
+
+```text
 Tools
 1) Setup / Reconfigure
 2) Create / Link GitHub Repository
@@ -119,7 +129,8 @@ Build:
 
 ```bash
 go fmt ./...
-CGO_ENABLED=0 go build -o git-genius ./cmd/genius
+VERSION="$(cat VERSION)"
+CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o git-genius ./cmd/genius
 ./git-genius
 ```
 

@@ -23,7 +23,12 @@ func SmartPull() bool {
 	cfg := config.Load()
 	if cfg.Remote == "" {
 		ui.Warn("No remote configured")
-		ui.Info("Run setup to configure GitHub repository")
+		ui.Info("Run Branch / Remote -> Configure remote")
+		return false
+	}
+	if !system.HasRemote(cfg.Remote) {
+		ui.Warn("Configured remote not found: " + cfg.Remote)
+		ui.Info("Run Branch / Remote -> Configure remote")
 		return false
 	}
 	stashed := false

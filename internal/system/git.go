@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -242,8 +243,24 @@ func EnsureGitRepo() bool {
 }
 
 ///////////////////////////////////////////////////////////////
-// BRANCH HELPERS
+// SHARED HELPERS
 ///////////////////////////////////////////////////////////////
+
+func splitNonEmptyLines(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+
+	lines := strings.Split(raw, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			out = append(out, line)
+		}
+	}
+	return out
+}
 
 func CurrentGitBranch() string {
 	branch, err := GitOutput("branch", "--show-current")
@@ -269,6 +286,113 @@ func CurrentRemote() string {
 	return cfg.Remote
 }
 
+func LocalBranches() ([]string, error) {
+	out, err := GitOutput("for-each-ref", "--format=%(refname:short)", "refs/heads")
+	if err != nil {
+		return nil, err
+	}
+
+	branches := splitNonEmptyLines(out)
+	sort.Strings(branches)
+	return branches, nil
+}
+
+func HasLocalBranch(name string) bool {
+	if strings.TrimSpace(name) == "" {
+		return false
+	}
+
+	branches, err := LocalBranches()
+	if err != nil {
+		return false
+	}
+
+	for _, branch := range branches {
+		if branch == name {
+			return true
+		}
+	}
+	return false
+}
+
+func SwitchToBranch(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("branch name is required")
+	}
+	if !HasLocalBranch(name) {
+		return errors.New("branch does not exist: " + name)
+	}
+	return RunGit("checkout", name)
+}
+
+func CreateBranch(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("branch name is required")
+	}
+	if HasLocalBranch(name) {
+		return errors.New("branch already exists: " + name)
+	}
+	return RunGit("checkout", "-b", name)
+}
+
+func PrepareBranch(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil
+	}
+
+	current := CurrentGitBranch()
+	if current == name {
+		return nil
+	}
+
+	if HasLocalBranch(name) {
+		return SwitchToBranch(name)
+	}
+
+	return CreateBranch(name)
+}
+
+func RemoteNames() ([]string, error) {
+	out, err := GitOutput("remote")
+	if err != nil {
+		return nil, err
+	}
+
+	remotes := splitNonEmptyLines(out)
+	sort.Strings(remotes)
+	return remotes, nil
+}
+
+func RemoteURL(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", errors.New("remote name is required")
+	}
+	return GitOutput("remote", "get-url", name)
+}
+
+func HasRemote(name string) bool {
+	_, err := RemoteURL(name)
+	return err == nil
+}
+
+func EnsureRemote(name, url string) error {
+	name = strings.TrimSpace(name)
+	url = strings.TrimSpace(url)
+	if name == "" || url == "" {
+		return errors.New("remote name and URL are required")
+	}
+
+	if HasRemote(name) {
+		return RunGit("remote", "set-url", name, url)
+	}
+
+	return RunGit("remote", "add", name, url)
+}
+
 func CurrentGitBranchAt(dir string) string {
 	branch, err := GitOutputAt(dir, "branch", "--show-current")
 	if err != nil {
@@ -278,10 +402,24 @@ func CurrentGitBranchAt(dir string) string {
 }
 
 func EnsureBranchSync() bool {
+	if !IsGitRepo() {
+		return true
+	}
+
 	cfg := config.Load()
 	current := CurrentGitBranch()
 
-	if current == "" || current == cfg.Branch {
+	if current == "" {
+		return true
+	}
+
+	if cfg.Branch == "" {
+		cfg.Branch = current
+		config.Save(cfg)
+		return true
+	}
+
+	if current == cfg.Branch {
 		return true
 	}
 
@@ -289,14 +427,23 @@ func EnsureBranchSync() bool {
 	ui.Info("Configured branch : " + cfg.Branch)
 	ui.Info("Git branch        : " + current)
 
-	if ui.Confirm("Rename git branch to " + cfg.Branch + "?") {
-		if err := RunGit("branch", "-m", cfg.Branch); err == nil {
-			ui.Success("Git branch renamed")
-			return true
-		}
-		ui.Warn("Branch rename failed")
+	if ui.ConfirmDefault("Use current git branch in config?", true) {
+		cfg.Branch = current
+		config.Save(cfg)
+		ui.Success("Config branch synced to: " + current)
+		return true
 	}
 
+	if ui.Confirm("Rename git branch to " + cfg.Branch + "?") {
+		if err := RunGit("branch", "-m", cfg.Branch); err == nil {
+			ui.Success("Git branch renamed to: " + cfg.Branch)
+			return true
+		}
+		ui.Error("Failed to rename git branch")
+		return false
+	}
+
+	ui.Warn("Keeping current branch and syncing config to stay consistent")
 	cfg.Branch = current
 	config.Save(cfg)
 	return true

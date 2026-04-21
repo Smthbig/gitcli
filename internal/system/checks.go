@@ -5,39 +5,11 @@ import (
 	"errors"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 
 	"git-genius/internal/ui"
 )
-
-/*
-Online means:
-- Network reachable (NOT permission related)
-- GitHub API reachable
-*/
-var Online bool = false
-
-/* ============================================================
-   SAFE COMMAND DETECTION (NO exec.LookPath)
-   ============================================================ */
-
-func commandExists(cmd string) bool {
-	pathEnv := os.Getenv("PATH")
-	if pathEnv == "" {
-		return false
-	}
-
-	for _, dir := range strings.Split(pathEnv, ":") {
-		full := filepath.Join(dir, cmd)
-		info, err := os.Stat(full)
-		if err == nil && info.Mode().IsRegular() && info.Mode()&0111 != 0 {
-			return true
-		}
-	}
-	return false
-}
 
 /* ============================================================
    ENV DETECTION
@@ -58,7 +30,7 @@ func isRestrictedEnv() bool {
 		return true
 	}
 	// No sudo → restricted
-	if !commandExists("sudo") {
+	if !CommandExists("sudo") {
 		return true
 	}
 	return false
@@ -71,7 +43,7 @@ func isRestrictedEnv() bool {
 func EnsureGitInstalled() error {
 	// Restricted envs: NEVER try auto install
 	if isRestrictedEnv() {
-		if commandExists("git") {
+		if CommandExists("git") {
 			return nil
 		}
 		ui.Warn("Git not found in PATH")
@@ -80,7 +52,7 @@ func EnsureGitInstalled() error {
 	}
 
 	// Normal systems
-	if commandExists("git") {
+	if CommandExists("git") {
 		return nil
 	}
 
@@ -100,7 +72,7 @@ func EnsureGitInstalled() error {
 		return err
 	}
 
-	if !commandExists("git") {
+	if !CommandExists("git") {
 		return errors.New("git install completed but binary not found")
 	}
 
@@ -129,13 +101,13 @@ func installGit() error {
 
 func installGitLinux() error {
 	switch {
-	case commandExists("apt"):
+	case CommandExists("apt"):
 		return runInstall("sudo apt update && sudo apt install -y git")
-	case commandExists("dnf"):
+	case CommandExists("dnf"):
 		return runInstall("sudo dnf install -y git")
-	case commandExists("yum"):
+	case CommandExists("yum"):
 		return runInstall("sudo yum install -y git")
-	case commandExists("pacman"):
+	case CommandExists("pacman"):
 		return runInstall("sudo pacman -S --noconfirm git")
 	default:
 		return errors.New("no supported package manager found")
@@ -143,7 +115,7 @@ func installGitLinux() error {
 }
 
 func installGitMac() error {
-	if commandExists("brew") {
+	if CommandExists("brew") {
 		return runInstall("brew install git")
 	}
 
@@ -165,15 +137,3 @@ func runInstall(command string) error {
 	cmd.Stdin = bufio.NewReader(os.Stdin)
 	return cmd.Run()
 }
-
-/* ============================================================
-   NETWORK CHECK (MINIMAL, SAFE, EXPLICIT)
-   ============================================================ */
-
-/*
-CheckInternet:
-- Runs ONLY when explicitly called
-- Android = always online (git already proves connectivity)
-- Non-Android = single lightweight GitHub API ping
-- Auth / permission errors ≠ offline
-*/

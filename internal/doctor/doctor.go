@@ -16,7 +16,7 @@ No offline mode
 Compatible with new system layer
 Android safe
 */
-func Run() {
+func Run() bool {
 
 	ui.Header("Git Genius Doctor 🩺")
 
@@ -32,6 +32,7 @@ func Run() {
 	checkErrorLog()
 
 	ui.Success("Doctor check completed")
+	return true
 }
 
 ///////////////////////////////////////////////////////////////
@@ -136,6 +137,10 @@ func checkGitHubToken() {
 	if token == "" {
 		ui.Warn("GitHub token not configured")
 		return
+	}
+
+	if github.TokenSource() == "environment" {
+		ui.Info("GitHub token source: environment variable " + github.EnvTokenName)
 	}
 
 	client, err := github.NewClient()

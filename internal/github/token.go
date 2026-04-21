@@ -10,6 +10,7 @@ import (
 const (
 	geniusDirName = ".git-genius"
 	tokenFileName = "token"
+	EnvTokenName  = "GIT_GENIUS_GITHUB_TOKEN"
 )
 
 /*
@@ -31,6 +32,30 @@ func getTokenPath() (string, error) {
 /* ================= TOKEN ================= */
 
 func GetToken() string {
+	if token := strings.TrimSpace(os.Getenv(EnvTokenName)); token != "" {
+		return token
+	}
+
+	return storedToken()
+}
+
+func TokenSource() string {
+	if strings.TrimSpace(os.Getenv(EnvTokenName)) != "" {
+		return "environment"
+	}
+
+	if storedToken() != "" {
+		return "file"
+	}
+
+	return ""
+}
+
+func HasStoredToken() bool {
+	return storedToken() != ""
+}
+
+func storedToken() string {
 	path, err := getTokenPath()
 	if err != nil {
 		return ""

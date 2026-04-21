@@ -127,22 +127,25 @@ fi
 if [[ "$USE_PREBUILT" == true ]]; then
   PREBUILT_URL="${PREBUILT_BASE}/${BIN_NAME}"
 
-  log "Installing prebuilt Git Genius binary"
-  curl -fsSL "$PREBUILT_URL" -o "$BIN_PATH" || err "Download failed"
-  chmod +x "$BIN_PATH"
+  log "Trying prebuilt Git Genius binary"
+  if curl -fsSL "$PREBUILT_URL" -o "$BIN_PATH"; then
+    chmod +x "$BIN_PATH"
 
-  if ! echo "$PATH" | grep -q "$BIN_DIR"; then
-    warn "Adding $BIN_DIR to PATH"
-    echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$HOME/.profile"
-    echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$HOME/.bashrc" 2>/dev/null || true
+    if ! echo "$PATH" | grep -q "$BIN_DIR"; then
+      warn "Adding $BIN_DIR to PATH"
+      echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$HOME/.profile"
+      echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$HOME/.bashrc" 2>/dev/null || true
+    fi
+
+    log "Git Genius installed successfully 🎉"
+    echo "Run:"
+    echo "  git-genius"
+    echo "Next:"
+    echo "  Tools → Setup / Reconfigure"
+    exit 0
   fi
 
-  log "Git Genius installed successfully 🎉"
-  echo "Run:"
-  echo "  git-genius"
-  echo "Next:"
-  echo "  Tools → Setup / Reconfigure"
-  exit 0
+  warn "Prebuilt binary unavailable, falling back to source build"
 fi
 
 # --------------------------------------------------
@@ -165,8 +168,19 @@ else
   cd "$SRC_DIR"
 fi
 
-go build -o "$BIN_PATH" ./cmd/genius || err "Build failed"
+VERSION="$(cat VERSION 2>/dev/null || true)"
+if [[ -n "$VERSION" ]]; then
+  go build -ldflags "-X main.version=${VERSION}" -o "$BIN_PATH" ./cmd/genius || err "Build failed"
+else
+  go build -o "$BIN_PATH" ./cmd/genius || err "Build failed"
+fi
 chmod +x "$BIN_PATH"
+
+if ! echo "$PATH" | grep -q "$BIN_DIR"; then
+  warn "Adding $BIN_DIR to PATH"
+  echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$HOME/.profile"
+  echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$HOME/.bashrc" 2>/dev/null || true
+fi
 
 log "Git Genius installed successfully 🎉"
 echo "Run:"

@@ -57,7 +57,6 @@ remove_bin() {
 
 remove_bin "$HOME/bin"
 remove_bin "/usr/local/bin"
-remove_bin "/usr/bin"
 
 # --------------------------------------------------
 # Remove source directory
@@ -70,13 +69,13 @@ if [[ -d "$SRC_DIR" ]]; then
 fi
 
 # --------------------------------------------------
-# Remove config cache (safe)
+# Remove app data (safe)
 # --------------------------------------------------
 
-CONFIG_DIR="$HOME/.config/git-genius"
-if [[ -d "$CONFIG_DIR" ]]; then
-  rm -rf "$CONFIG_DIR"
-  log "Removed config directory: $CONFIG_DIR"
+DATA_DIR="$HOME/.git-genius"
+if [[ -d "$DATA_DIR" ]]; then
+  rm -rf "$DATA_DIR"
+  log "Removed app data directory: $DATA_DIR"
 fi
 
 # --------------------------------------------------

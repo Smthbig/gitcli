@@ -76,6 +76,13 @@ func Push(msg string) bool {
 
 	// ---------- FIRST COMMIT ----------
 	if !hasAnyCommit() {
+		if cfg.Branch != "" && system.CurrentGitBranch() == "" {
+			if err := system.PrepareBranch(cfg.Branch); err != nil {
+				ui.Error("Failed to prepare branch for first commit")
+				ui.Info(err.Error())
+				return false
+			}
+		}
 
 		if msg == "" {
 			msg = "Initial commit"
@@ -117,7 +124,13 @@ func Push(msg string) bool {
 	// ---------- REMOTE CHECK ----------
 	if cfg.Remote == "" {
 		ui.Warn("No remote configured")
-		ui.Info("Run setup to configure GitHub repository")
+		ui.Info("Run Branch / Remote -> Configure remote or Tools -> Create / Link GitHub Repository")
+		return false
+	}
+
+	if !system.HasRemote(cfg.Remote) {
+		ui.Warn("Configured remote not found: " + cfg.Remote)
+		ui.Info("Run Branch / Remote -> Configure remote")
 		return false
 	}
 
@@ -150,6 +163,12 @@ func Pull() bool {
 	cfg := config.Load()
 	if cfg.Remote == "" {
 		ui.Warn("No remote configured")
+		ui.Info("Run Branch / Remote -> Configure remote")
+		return false
+	}
+	if !system.HasRemote(cfg.Remote) {
+		ui.Warn("Configured remote not found: " + cfg.Remote)
+		ui.Info("Run Branch / Remote -> Configure remote")
 		return false
 	}
 
