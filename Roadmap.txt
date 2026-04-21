@@ -16,6 +16,9 @@ Recently Completed
 - added Git credential-helper setup and token preloading flow
 - improved setup, Doctor, and limited-mode behavior
 - added initial automated tests for config, history, token precedence, git safety helpers, and core push behavior
+- completed Phase 1 core UX hardening work
+- fixed multi-repo switching so changing projects no longer overwrites another repo's config
+- added a Switch Project / Repo flow that can change directory, branch, and remote without full setup
 - refreshed in-app help, README, and docs
 
 Product Direction
@@ -51,9 +54,10 @@ Current Product Shape
   - undo last commit
 - Tools
   - setup / reconfigure
+  - switch project / repo
   - create / link GitHub repository
   - Git auth / credential helper
-  - change project directory
+  - change project directory (limited mode / simple directory switch)
   - Doctor
 - Help / About
   - workflow guidance
@@ -63,14 +67,14 @@ Current Product Shape
 Roadmap
 
 Phase 1: Core UX Hardening
-Target: next minor release
+Status: completed on 2026-04-21
 
-- add clearer success/failure summaries after push and pull
-- show ahead/behind status in the context panel when cheap to compute
-- make first-run detection more explicit for brand-new repos
-- improve empty-repo handling and first-push guidance
-- surface more actionable auth guidance directly after failed HTTPS pushes
-- add more tests around setup and multi-project switching
+- completed: clearer success/failure summaries after push and pull
+- completed: ahead/behind status in the context panel when cheap to compute
+- completed: explicit first-run detection for brand-new repos
+- completed: improved empty-repo handling and first-push guidance
+- completed: more actionable auth guidance directly after failed HTTPS pushes
+- completed: more tests around setup and multi-project switching
 
 Phase 2: Repo Insight
 Target: after core UX hardening
@@ -80,6 +84,14 @@ Target: after core UX hardening
 - branch list with last-commit context
 - remote overview screen
 - optional unpushed-commit summary before push
+
+Phase 2.5: Multi-Repo Workflow
+Target: alongside repo insight work
+
+- project switcher should show saved repo name, branch, and remote before confirmation
+- recent-project list should prefer known Git repos over plain directories
+- optional one-screen project dashboard for branch, remote, and GitHub repo repair
+- add more automated tests for switching between multiple configured repos
 
 Phase 3: Recovery and Conflict Guidance
 Target: after repo insight
@@ -131,10 +143,10 @@ Quality Gates For Future Releases
 - future roadmap updates must distinguish completed work from planned work
 
 Definition of Done For The Next Release
-- core UX hardening items implemented
-- test coverage expanded for setup and push/pull flows
+- multi-repo project switching works without repeating setup
+- test coverage expanded for setup, project switching, and push/pull flows
 - docs updated for any changed behavior
 - release version bumped and installer verified
 
 Summary
-The foundation is now stable enough to move beyond cleanup work. The next priority is better repo insight and smoother day-to-day guidance, while keeping the app safe, predictable, and well documented.
+The foundation is now stable enough to move beyond cleanup work. The next priority is better repo insight and smoother multi-repo navigation, while keeping the app safe, predictable, and well documented.

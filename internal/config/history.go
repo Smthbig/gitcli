@@ -104,7 +104,7 @@ func HistorySuggestions(workDir string) []string {
 		if e.Action == "pull" || e.Action == "smart_pull" {
 			pullCount++
 		}
-		if e.Action == "change_project_dir" {
+		if e.Action == "change_project_dir" || e.Action == "switch_project_repo" {
 			changeDirCount++
 		}
 	}
@@ -117,7 +117,7 @@ func HistorySuggestions(workDir string) []string {
 		out = append(out, "You push often without pulling. Use Smart Pull before push to avoid conflicts.")
 	}
 	if changeDirCount >= 2 {
-		out = append(out, "You switch repos often. Use recent-directory shortcuts in Setup or Change Project Directory.")
+		out = append(out, "You switch repos often. Use recent-directory shortcuts in Setup or Switch Project / Repo.")
 	}
 	if len(out) == 0 {
 		out = append(out, "Workflow looks healthy. Continue with Daily Git Operations.")

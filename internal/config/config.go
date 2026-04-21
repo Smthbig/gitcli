@@ -45,29 +45,11 @@ type Config struct {
 
 // Load reads config from disk and applies safe defaults
 func Load() Config {
-	dir := preferredWorkDir()
-	data, err := os.ReadFile(configPath(dir))
-	if err != nil {
-		c := defaultConfig()
-		c.WorkDir = dir
-		return c
-	}
+	return loadForWorkDir(preferredWorkDir(), true)
+}
 
-	var c Config
-	if err := json.Unmarshal(data, &c); err != nil {
-		c = defaultConfig()
-		c.WorkDir = dir
-		return c
-	}
-
-	applyDefaults(&c)
-	normalizePaths(&c)
-	if c.WorkDir == "" {
-		c.WorkDir = dir
-	}
-	updateState(c.WorkDir)
-
-	return c
+func LoadForWorkDir(workDir string) Config {
+	return loadForWorkDir(workDir, false)
 }
 
 // Save writes config with secure permissions
@@ -91,6 +73,13 @@ func Save(c Config) {
 	}
 
 	updateState(c.WorkDir)
+}
+
+func SetActiveWorkDir(workDir string) {
+	if workDir == "" {
+		return
+	}
+	updateState(workDir)
 }
 
 /* ============================================================
@@ -172,6 +161,43 @@ func configPath(workDir string) string {
 		return File
 	}
 	return filepath.Join(workDir, ".git", ".genius", "config.json")
+}
+
+func loadForWorkDir(workDir string, remember bool) Config {
+	if workDir == "" {
+		workDir = preferredWorkDir()
+	}
+
+	data, err := os.ReadFile(configPath(workDir))
+	if err != nil {
+		c := defaultConfig()
+		c.WorkDir = workDir
+		if remember {
+			updateState(c.WorkDir)
+		}
+		return c
+	}
+
+	var c Config
+	if err := json.Unmarshal(data, &c); err != nil {
+		c = defaultConfig()
+		c.WorkDir = workDir
+		if remember {
+			updateState(c.WorkDir)
+		}
+		return c
+	}
+
+	applyDefaults(&c)
+	normalizePaths(&c)
+	if c.WorkDir == "" {
+		c.WorkDir = workDir
+	}
+	if remember {
+		updateState(c.WorkDir)
+	}
+
+	return c
 }
 
 func HasProjectConfig(workDir string) bool {

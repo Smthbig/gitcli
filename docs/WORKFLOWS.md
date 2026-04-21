@@ -58,9 +58,12 @@ Git Genius updates existing remotes with `set-url` instead of deleting and recre
 
 ## Multi-Project Workflow
 
-1. Open `Tools -> Change Project Directory`
+1. Open `Tools -> Switch Project / Repo`
 2. Pick a recent project or enter a new path
-3. If the new path is not a Git repo, initialize it or re-run setup
+3. Git Genius activates that directory without copying config from the previous repo
+4. If the target repo already has `.git/.genius/config.json`, its saved branch and remote become active automatically
+5. Optionally switch branch or remote immediately after the directory change
+6. If the new path is not a Git repo, initialize it or re-run setup
 
 Git Genius stores:
 

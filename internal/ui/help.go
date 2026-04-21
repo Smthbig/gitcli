@@ -119,9 +119,10 @@ var HelpTools = []string{
 	"- Can preload your current GitHub token into Git",
 	"- Best fix when push keeps asking for username and token",
 	"",
-	"Change Project Directory",
-	"- Switch to another project folder",
-	"- Shows recent projects for faster switching",
+	"Switch Project / Repo",
+	"- Switch to another project folder without re-running full setup",
+	"- Loads that repo's saved branch and remote config when available",
+	"- Can immediately switch branch or remote after changing directory",
 	"",
 	"Doctor",
 	"- Checks git, branch, remote, token, repo",
@@ -167,7 +168,7 @@ var HelpWorkflow = []string{
 	"- Push with a clear commit message",
 	"",
 	"Multi-Project Workflow",
-	"- Use Tools -> Change Project Directory",
+	"- Use Tools -> Switch Project / Repo",
 	"- Re-run Setup when switching to a brand-new repo",
 }
 
@@ -187,4 +188,8 @@ var HelpTroubleshooting = []string{
 	"Project feels misconfigured",
 	"- Run Tools -> Doctor",
 	"- Re-run Tools -> Setup / Reconfigure if needed",
+	"",
+	"Switching between repos should not require setup every time",
+	"- Use Tools -> Switch Project / Repo",
+	"- Each repo keeps its own local .git/.genius/config.json",
 }

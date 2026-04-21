@@ -33,7 +33,7 @@ func TestHistorySuggestionsReflectRecentBehavior(t *testing.T) {
 	if !containsMessage(got, "Smart Pull before push") {
 		t.Fatalf("expected smart pull suggestion, got %v", got)
 	}
-	if !containsMessage(got, "Change Project Directory") {
+	if !containsMessage(got, "Switch Project / Repo") {
 		t.Fatalf("expected recent directory suggestion, got %v", got)
 	}
 }

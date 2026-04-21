@@ -311,7 +311,7 @@ func toolsMenu(gitAvailable bool) {
 		if gitAvailable {
 			fmt.Println("2) Create / Link GitHub Repository")
 			fmt.Println("3) Git Auth / Credential Helper")
-			fmt.Println("4) Change Project Directory")
+			fmt.Println("4) Switch Project / Repo")
 			fmt.Println("5) Doctor (health check)")
 			fmt.Println("6) Back")
 		} else {
@@ -339,7 +339,7 @@ func toolsMenu(gitAvailable bool) {
 			}
 		case "4":
 			if gitAvailable {
-				track("tools", "change_project_dir", setup.ChangeProjectDir)
+				track("tools", "switch_project_repo", setup.SwitchProjectRepo)
 			} else {
 				return
 			}

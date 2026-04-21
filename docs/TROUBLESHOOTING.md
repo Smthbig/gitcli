@@ -52,16 +52,28 @@ Use the first option when you only need to repair a local remote.
 Fix:
 
 1. Run `Tools -> Doctor`
-2. If branch mismatch is reported, re-run `Tools -> Setup / Reconfigure`
+2. Use `Tools -> Switch Project / Repo` so Git Genius loads the target repo's own config
+3. If branch mismatch is reported, re-run `Tools -> Setup / Reconfigure`
 
 Git Genius keeps the configured branch and the real Git branch in sync, but older repos may need one cleanup pass.
+
+## Switching repos asks for setup every time
+
+Use `Tools -> Switch Project / Repo`.
+
+That flow now:
+
+- changes the active directory
+- loads the selected repo's own `.git/.genius/config.json` when it exists
+- avoids copying branch/remote settings from the previous repo
+- can immediately switch branch or remote in the new repo
 
 ## No Git repository found
 
 Fix:
 
 - re-run `Tools -> Setup / Reconfigure`
-- or `Tools -> Change Project Directory`
+- or `Tools -> Switch Project / Repo`
 
 Git Genius can initialize the directory as a Git repo during setup.
 

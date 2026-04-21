@@ -118,3 +118,39 @@ func TestRecentWorkDirsReordersWhenSwitchingProjects(t *testing.T) {
 		t.Fatalf("preferredWorkDir = %q want %q", got, repoA)
 	}
 }
+
+func TestLoadForWorkDirAndSetActiveWorkDirKeepRepoConfigsSeparated(t *testing.T) {
+	home := t.TempDir()
+	repoA := t.TempDir()
+	repoB := t.TempDir()
+
+	if err := os.MkdirAll(filepath.Join(repoA, ".git"), 0o755); err != nil {
+		t.Fatalf("mkdir repoA .git: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(repoB, ".git"), 0o755); err != nil {
+		t.Fatalf("mkdir repoB .git: %v", err)
+	}
+
+	t.Setenv("HOME", home)
+
+	Save(Config{Branch: "feature/a", Remote: "origin", Owner: "octo", Repo: "repo-a", WorkDir: repoA})
+	Save(Config{Branch: "release/b", Remote: "upstream", Owner: "octo", Repo: "repo-b", WorkDir: repoB})
+
+	SetActiveWorkDir(repoA)
+	if got := Load(); got.Branch != "feature/a" || got.Repo != "repo-a" {
+		t.Fatalf("active repoA config mismatch: %+v", got)
+	}
+
+	if got := LoadForWorkDir(repoB); got.Branch != "release/b" || got.Remote != "upstream" || got.Repo != "repo-b" {
+		t.Fatalf("LoadForWorkDir repoB mismatch: %+v", got)
+	}
+
+	SetActiveWorkDir(repoB)
+	if got := Load(); got.Branch != "release/b" || got.Remote != "upstream" || got.Repo != "repo-b" {
+		t.Fatalf("active repoB config mismatch: %+v", got)
+	}
+
+	if got := LoadForWorkDir(repoA); got.Branch != "feature/a" || got.Repo != "repo-a" {
+		t.Fatalf("repoA config was altered unexpectedly: %+v", got)
+	}
+}

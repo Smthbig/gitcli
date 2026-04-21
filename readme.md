@@ -22,6 +22,7 @@ Beginner-friendly interactive Git assistant for daily workflows, setup, recovery
 - Stash and undo flows for recovery
 - Guided setup and reconfiguration
 - Context panel with branch, remote, ahead/behind, and first-push cues
+- Fast project/repo switching that loads the selected repo's saved config
 - GitHub repository create/link flow
 - GitHub token support from local storage or `GIT_GENIUS_GITHUB_TOKEN`
 - Git credential-helper configuration to reduce repeated HTTPS prompts
@@ -109,9 +110,11 @@ The context panel now calls out:
 
 ### Multi-project workflow
 
-1. Open `Tools -> Change Project Directory`
+1. Open `Tools -> Switch Project / Repo`
 2. Pick a recent project or enter a path manually
-3. Re-run setup if the new directory is a fresh repo
+3. Git Genius switches the active directory and loads that repo's saved branch/remote config
+4. Optionally switch branch or remote immediately in the same flow
+5. Re-run setup only for a brand-new repo that has never been configured
 
 ## Authentication Model
 
@@ -165,7 +168,7 @@ Tools
 1) Setup / Reconfigure
 2) Create / Link GitHub Repository
 3) Git Auth / Credential Helper
-4) Change Project Directory
+4) Switch Project / Repo
 5) Doctor (health check)
 6) Back
 ```
@@ -203,7 +206,7 @@ go test ./...
 - `internal/menu`
   - top-level navigation and section routing
 - `internal/setup`
-  - setup, reconfiguration, auth helper, repo linking, directory switching
+  - setup, reconfiguration, auth helper, repo linking, and project/repo switching
 - `internal/gitops`
   - daily Git operations and safe branch/remote flows
 - `internal/doctor`
