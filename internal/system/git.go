@@ -393,6 +393,73 @@ func EnsureRemote(name, url string) error {
 	return RunGit("remote", "add", name, url)
 }
 
+func GitCredentialHelper() (string, error) {
+	out, err := GitOutput("config", "--global", "--get", "credential.helper")
+	if err != nil {
+		return "", nil
+	}
+	return strings.TrimSpace(out), nil
+}
+
+func HasGitCredentialHelper() bool {
+	helper, _ := GitCredentialHelper()
+	return helper != ""
+}
+
+func SetGitCredentialHelper(value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return errors.New("credential helper value is required")
+	}
+	return RunGit("config", "--global", "credential.helper", value)
+}
+
+func ClearGitCredentialHelper() error {
+	helper, _ := GitCredentialHelper()
+	if helper == "" {
+		return nil
+	}
+	return RunGit("config", "--global", "--unset-all", "credential.helper")
+}
+
+func ApproveGitHubCredential(username, token string) error {
+	username = strings.TrimSpace(username)
+	token = strings.TrimSpace(token)
+	if username == "" || token == "" {
+		return errors.New("username and token are required")
+	}
+
+	helper, _ := GitCredentialHelper()
+	if helper == "" {
+		return errors.New("git credential helper is not configured")
+	}
+
+	git, err := getGitPath()
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.Command(git, "credential", "approve")
+	cmd.Stdin = strings.NewReader(
+		"protocol=https\n" +
+			"host=github.com\n" +
+			"username=" + username + "\n" +
+			"password=" + token + "\n\n",
+	)
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return errors.New(strings.TrimSpace(stderr.String()))
+		}
+		return err
+	}
+
+	return nil
+}
+
 func CurrentGitBranchAt(dir string) string {
 	branch, err := GitOutputAt(dir, "branch", "--show-current")
 	if err != nil {

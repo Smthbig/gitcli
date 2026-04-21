@@ -59,6 +59,11 @@ func Run() bool {
 		return false
 	}
 
+	if !configureGitAuthIfNeeded() {
+		ui.Warn("Git authentication helper was not fully configured")
+		ui.Info("You can revisit this later from Tools -> Git Auth / Credential Helper")
+	}
+
 	ensureGitHubRepo(&cfg)
 
 	if err := configureRemote(&cfg); err != nil {
@@ -249,7 +254,7 @@ func setupGitHubToken() bool {
 		}
 		return true
 	case "file":
-		ui.Success("GitHub token already configured")
+		ui.Success("GitHub token already configured in local Git Genius storage")
 		return true
 	}
 
@@ -262,7 +267,7 @@ func setupGitHubToken() bool {
 	}
 
 	for {
-		token := strings.TrimSpace(ui.SecretInput("Paste GitHub token"))
+		token := strings.TrimSpace(ui.SecretInput("Paste GitHub token (input hidden)"))
 		if token == "" {
 			ui.Error("Token cannot be empty")
 			if !ui.ConfirmDefault("Try again?", true) {

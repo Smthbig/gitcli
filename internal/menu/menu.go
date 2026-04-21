@@ -54,7 +54,7 @@ func maybeOfferSetup(gitAvailable bool) {
 	}
 
 	cfg := config.Load()
-	if config.HasProjectConfig(cfg.GetWorkDir()) || len(config.RecentHistory(1)) > 0 {
+	if config.HasProjectConfig(cfg.GetWorkDir()) || config.HasHistoryForWorkDir(cfg.GetWorkDir()) {
 		return
 	}
 
@@ -290,9 +290,10 @@ func toolsMenu(gitAvailable bool) {
 		fmt.Println("1) Setup / Reconfigure")
 		if gitAvailable {
 			fmt.Println("2) Create / Link GitHub Repository")
-			fmt.Println("3) Change Project Directory")
-			fmt.Println("4) Doctor (health check)")
-			fmt.Println("5) Back")
+			fmt.Println("3) Git Auth / Credential Helper")
+			fmt.Println("4) Change Project Directory")
+			fmt.Println("5) Doctor (health check)")
+			fmt.Println("6) Back")
 		} else {
 			fmt.Println("2) Change Project Directory")
 			fmt.Println("3) Doctor (health check)")
@@ -312,17 +313,23 @@ func toolsMenu(gitAvailable bool) {
 			}
 		case "3":
 			if gitAvailable {
-				track("tools", "change_project_dir", setup.ChangeProjectDir)
+				track("tools", "configure_git_auth", setup.ConfigureGitAuth)
 			} else {
 				track("tools", "doctor", doctor.Run)
 			}
 		case "4":
 			if gitAvailable {
-				track("tools", "doctor", doctor.Run)
+				track("tools", "change_project_dir", setup.ChangeProjectDir)
 			} else {
 				return
 			}
 		case "5":
+			if gitAvailable {
+				track("tools", "doctor", doctor.Run)
+			} else {
+				return
+			}
+		case "6":
 			if gitAvailable {
 				return
 			}
@@ -345,7 +352,9 @@ func mainHelp() {
 	ui.Header("Help / About Git Genius")
 
 	ui.PrintHelp(ui.HelpMain)
+	ui.PrintHelp(ui.HelpWorkflow)
 	ui.PrintHelp(ui.HelpGitHub)
+	ui.PrintHelp(ui.HelpTroubleshooting)
 
 	ui.Pause()
 }

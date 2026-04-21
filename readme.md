@@ -1,30 +1,32 @@
 # Git Genius (gitcli)
 
-Beginner-friendly interactive Git assistant for daily workflows, setup, and recovery.
+Beginner-friendly interactive Git assistant for daily workflows, setup, recovery, and GitHub linking.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
 ## What It Solves
 
-- Removes command memorization with guided terminal menus
-- Handles common Git mistakes with safer defaults and confirmations
-- Helps first-time setup for repo, branch, remote, and GitHub token
-- Includes health diagnostics via built-in Doctor checks
+- Removes Git command memorization with guided terminal menus
+- Gives safer defaults for common branch, remote, and recovery actions
+- Helps first-time setup for local repos and GitHub remotes
+- Supports multi-project switching with recent-directory history
+- Includes built-in diagnostics with Doctor checks
 
-## Features
+## Core Features
 
-- **Daily Git Operations:** push, pull, smart pull, fetch, status
-- **Branch and Remote Management:** switch existing branches, create branches, and update remotes safely
-- **Recovery Tools:** stash save/list/pop and undo last commit (keep changes)
-- **Guided Setup:** configure work dir, repo, branch, remote, identity, token
-- **GitHub Linking:** create or link remote repository
-- **Automation-Friendly Auth:** supports `GIT_GENIUS_GITHUB_TOKEN`
-- **Doctor:** validates git install, project state, token, remote, repo status
+- Daily Git operations: `status`, `pull`, `smart pull`, `fetch`, `push`
+- Safe branch and remote management
+- Stash and undo flows for recovery
+- Guided setup and reconfiguration
+- GitHub repository create/link flow
+- GitHub token support from local storage or `GIT_GENIUS_GITHUB_TOKEN`
+- Git credential-helper configuration to reduce repeated HTTPS prompts
+- Per-repo config plus global active-project state
 
-## Installation
+## Install
 
-### Quick install (recommended)
+### Quick install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/install.sh | bash
@@ -36,16 +38,14 @@ Then run:
 git-genius
 ```
 
-### Fresh reinstall
+### Reinstall
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/uninstall.sh | bash
 curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/install.sh | bash
 ```
 
-### Update to latest version
-
-The installer is update-aware and exits when already up to date.
+### Update
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/install.sh | bash
@@ -59,25 +59,66 @@ curl -fsSL https://raw.githubusercontent.com/Smthbig/gitcli/main/uninstall.sh | 
 
 ## Commands
 
-- Primary command: `git-genius`
-- Version command: `git-genius --version`
-- Project/repo name: `gitcli` (this repository)
+- Main command: `git-genius`
+- Version: `git-genius --version`
+- Project/repo name: `gitcli`
 
-If you prefer `gitcli` as command, add an alias:
+If you prefer `gitcli` as the command name:
 
 ```bash
 echo "alias gitcli='git-genius'" >> ~/.zshrc
 source ~/.zshrc
 ```
 
-## In-App "Update" Actions
+## Docs
 
-Git Genius has two update paths inside the app:
+- [Workflow Guide](docs/WORKFLOWS.md)
+- [Authentication Guide](docs/AUTH.md)
+- [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
+- [Roadmap](Roadmap.txt)
 
-- **Tools -> Setup / Reconfigure**
-  - Re-runs complete setup and updates branch/remote/token/workdir settings
-- **Tools -> Create / Link GitHub Repository**
-  - Creates or relinks GitHub repository and updates remote URL
+## Quick Start
+
+### First-time setup
+
+1. Run `git-genius`
+2. Open `Tools -> Setup / Reconfigure`
+3. Choose the project directory
+4. Initialize Git if the folder is not already a repo
+5. Configure branch, remote, GitHub owner/repo, token, and auth helper
+6. Optionally create/link the GitHub repository
+7. Optionally do the first commit and push
+
+### Daily workflow
+
+1. Review the context panel
+2. Run `Daily Git Operations -> Git status`
+3. Run `Smart Pull` before pushing when the remote may have changed
+4. Edit files in your normal editor
+5. Run `Push changes`
+
+### Multi-project workflow
+
+1. Open `Tools -> Change Project Directory`
+2. Pick a recent project or enter a path manually
+3. Re-run setup if the new directory is a fresh repo
+
+## Authentication Model
+
+Git Genius uses two separate layers:
+
+- GitHub API authentication
+  - Used for repo existence checks and repo creation
+  - Reads the token from local Git Genius storage or `GIT_GENIUS_GITHUB_TOKEN`
+- Git HTTPS authentication
+  - Used by `git push` and `git pull`
+  - Managed through `Tools -> Git Auth / Credential Helper`
+
+Recommended setup:
+
+- Use `GIT_GENIUS_GITHUB_TOKEN` for automation or CI-like environments
+- Configure the Git credential helper from the Tools menu
+- Preload the current GitHub token into Git so HTTPS pushes stop prompting
 
 ## Interface Map
 
@@ -113,10 +154,15 @@ Branch / Remote
 Tools
 1) Setup / Reconfigure
 2) Create / Link GitHub Repository
-3) Change Project Directory
-4) Doctor (health check)
-5) Back
+3) Git Auth / Credential Helper
+4) Change Project Directory
+5) Doctor (health check)
+6) Back
 ```
+
+## Limited Mode
+
+If Git is not available in a restricted environment, Git Genius enters limited mode. In that mode it keeps setup, project switching, Doctor, and Help available while hiding normal daily Git operations.
 
 ## Build From Source
 
@@ -134,43 +180,44 @@ CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o git-genius ./cmd
 ./git-genius
 ```
 
-## Project Design (Codebase Overview)
+Test:
 
-Your project is modular and cleanly separated by responsibility:
+```bash
+go test ./...
+```
+
+## Codebase Overview
 
 - `cmd/genius/main.go`
-  - Entry point, runtime safety env setup, app bootstrap
+  - app bootstrap and version entrypoint
 - `internal/menu`
-  - Top-level interactive navigation and section routing
+  - top-level navigation and section routing
 - `internal/setup`
-  - First-time setup, reconfiguration, directory changes, GitHub repo linking
+  - setup, reconfiguration, auth helper, repo linking, directory switching
 - `internal/gitops`
-  - Daily operations: push/pull/fetch/smart pull/branch/remote/stash/undo
+  - daily Git operations and safe branch/remote flows
 - `internal/doctor`
-  - System and repository diagnostics
+  - diagnostics and health checks
 - `internal/system`
-  - Git command execution, environment checks, runtime helpers
+  - Git command helpers and shared system behavior
 - `internal/github`
-  - Token persistence and GitHub API interactions
+  - token storage and GitHub API client logic
 - `internal/config`
-  - Per-repo config at `<repo>/.git/.genius/config.json`
-  - Global active-project state at `~/.git-genius/state.json` for multi-repo switching
+  - repo-local config plus global active-project state and history
 - `internal/ui`
-  - Terminal prompts, confirmations, rendering, help strings
+  - prompts, rendering, and help text
 
-Design strengths:
+## Current Direction
 
-- Clear separation between UI flow and Git/system logic
-- Safe defaults for first-run and restricted environments
-- Config-driven operations across multiple working directories
-- Good extensibility for future sections/features
+The current priority is product hardening:
 
-## Roadmap Ideas
+- smoother auth and credential-helper behavior
+- stronger tests around interactive workflows
+- richer help and docs
+- clearer recovery and troubleshooting guidance
+- future automation and release improvements
 
-- Commit history viewer and better log UX
-- Rich diff summaries for staged/unstaged changes
-- Non-interactive flags for scripting/automation mode
-- Optional shell autocompletion for command shortcuts
+See [Roadmap.txt](Roadmap.txt) for the forward plan.
 
 ## License
 
@@ -178,4 +225,4 @@ MIT License.
 
 ## Note
 
-Git Genius is a helper layer on top of Git. It improves flow and safety, but understanding core Git concepts is still important.
+Git Genius improves safety and usability, but it is still a helper layer on top of Git. Understanding basic Git concepts remains important.

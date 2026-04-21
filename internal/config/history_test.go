@@ -37,3 +37,18 @@ func TestHistorySuggestionsReflectRecentBehavior(t *testing.T) {
 		t.Fatalf("expected recent directory suggestion, got %v", got)
 	}
 }
+
+func TestHasHistoryForWorkDirOnlyMatchesThatRepo(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	workDirA := t.TempDir()
+	workDirB := t.TempDir()
+
+	RecordHistory(workDirA, "daily", "status", true, "")
+
+	if !HasHistoryForWorkDir(workDirA) {
+		t.Fatalf("expected history for workDirA")
+	}
+	if HasHistoryForWorkDir(workDirB) {
+		t.Fatalf("did not expect history for workDirB")
+	}
+}

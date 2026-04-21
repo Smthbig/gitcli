@@ -85,12 +85,7 @@ func HistorySuggestions(workDir string) []string {
 		return []string{"Run Tools -> Setup / Reconfigure to initialize this project."}
 	}
 
-	var inDir []HistoryEntry
-	for _, e := range recent {
-		if e.WorkDir == workDir {
-			inDir = append(inDir, e)
-		}
-	}
+	inDir := HistoryForWorkDir(workDir, recent)
 	if len(inDir) == 0 {
 		return []string{"No history for this repo yet. Start with Setup / Reconfigure."}
 	}
@@ -128,6 +123,20 @@ func HistorySuggestions(workDir string) []string {
 		out = append(out, "Workflow looks healthy. Continue with Daily Git Operations.")
 	}
 	return out
+}
+
+func HasHistoryForWorkDir(workDir string) bool {
+	return len(HistoryForWorkDir(workDir, RecentHistory(60))) > 0
+}
+
+func HistoryForWorkDir(workDir string, entries []HistoryEntry) []HistoryEntry {
+	var inDir []HistoryEntry
+	for _, e := range entries {
+		if e.WorkDir == workDir {
+			inDir = append(inDir, e)
+		}
+	}
+	return inDir
 }
 
 func historyPath() string {

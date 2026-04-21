@@ -107,3 +107,30 @@ func TestCreateBranchAndPrepareBranchAreSafe(t *testing.T) {
 		t.Fatalf("current branch = %q, want release/test", got)
 	}
 }
+
+func TestApproveGitHubCredentialWritesThroughConfiguredHelper(t *testing.T) {
+	if !CommandExists("git") {
+		t.Skip("git not installed")
+	}
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if err := SetGitCredentialHelper("store"); err != nil {
+		t.Fatalf("SetGitCredentialHelper: %v", err)
+	}
+
+	if err := ApproveGitHubCredential("algospider", "token-123"); err != nil {
+		t.Fatalf("ApproveGitHubCredential: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(home, ".git-credentials"))
+	if err != nil {
+		t.Fatalf("read credentials: %v", err)
+	}
+
+	got := string(data)
+	if got == "" || got != "https://algospider:token-123@github.com\n" {
+		t.Fatalf("unexpected credential store contents: %q", got)
+	}
+}

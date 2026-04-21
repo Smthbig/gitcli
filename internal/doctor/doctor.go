@@ -190,12 +190,20 @@ func checkErrorLog() {
 }
 
 func checkGitCredentialHelper() {
-	out, err := system.GitOutput("config", "--global", "--get", "credential.helper")
-	if err != nil || out == "" {
+	helper, err := system.GitCredentialHelper()
+	if err != nil || helper == "" {
+		ui.Warn("No global Git credential helper configured")
+		ui.Info("Run Tools -> Git Auth / Credential Helper to reduce repeated HTTPS prompts")
 		return
 	}
 
-	if out == "!/usr/bin/gh auth git-credential" && !system.CommandExists("gh") {
+	ui.Success("Git credential helper: " + helper)
+
+	if helper == "store" {
+		ui.Warn("Credential helper stores credentials in plain text at ~/.git-credentials")
+	}
+
+	if helper == "!/usr/bin/gh auth git-credential" && !system.CommandExists("gh") {
 		ui.Warn("Git credential helper uses gh, but gh is not installed")
 		ui.Info("Push may still work, but auth helper warnings will appear")
 	}

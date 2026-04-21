@@ -117,8 +117,8 @@ func Push(msg string) bool {
 			return false
 		}
 	} else {
-		ui.Warn("Nothing to commit")
-		return true
+		ui.Info("No local file changes detected")
+		ui.Info("Attempting to push any existing local commits")
 	}
 
 	// ---------- REMOTE CHECK ----------
@@ -147,6 +147,10 @@ func Push(msg string) bool {
 	// ---------- PUSH ----------
 	if err := system.RunGit("push", "-u", cfg.Remote, branch); err != nil {
 		ui.Error("Push failed")
+		if !system.HasGitCredentialHelper() {
+			ui.Info("Run Tools -> Git Auth / Credential Helper to reduce repeated HTTPS auth prompts")
+		}
+		ui.Info("Run Doctor if the problem persists")
 		return false
 	}
 
@@ -181,8 +185,18 @@ func Pull() bool {
 		return false
 	}
 
+	if isWorkingTreeDirty() {
+		ui.Warn("Uncommitted changes detected")
+		ui.Info("Use Smart Pull if you want Git Genius to stash and restore changes automatically")
+		if !ui.Confirm("Continue with a normal pull anyway?") {
+			ui.Warn("Pull cancelled")
+			return false
+		}
+	}
+
 	if err := system.RunGit("pull", cfg.Remote, branch); err != nil {
 		ui.Error("Pull failed")
+		ui.Info("Try Smart Pull or run Doctor for more guidance")
 		return false
 	}
 
