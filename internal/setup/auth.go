@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"git-genius/internal/config"
 	"git-genius/internal/github"
 	"git-genius/internal/system"
 	"git-genius/internal/ui"
@@ -108,17 +109,24 @@ func preloadGitHubCredential() bool {
 		return true
 	}
 
-	client, err := github.NewClient()
-	if err != nil {
-		ui.Warn("Could not read GitHub token")
-		ui.Info(err.Error())
-		return true
+	user := github.GetUsername()
+	if user == "" {
+		client, err := github.NewClient()
+		if err == nil {
+			if resolved, resolveErr := client.GetAuthenticatedUser(); resolveErr == nil {
+				user = resolved
+				_ = github.SaveAuth(token, user)
+			}
+		}
 	}
 
-	user, err := client.GetAuthenticatedUser()
-	if err != nil {
-		ui.Warn("Could not resolve GitHub username from token")
-		ui.Info(err.Error())
+	if user == "" {
+		user = config.Load().Owner
+	}
+
+	if user == "" {
+		ui.Warn("Could not resolve a GitHub username for credential preload")
+		ui.Info("Re-run Setup with a validated token or export " + github.EnvUserName)
 		return true
 	}
 

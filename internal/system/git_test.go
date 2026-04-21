@@ -4,7 +4,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"git-genius/internal/config"
 )
 
 func runGitCommand(t *testing.T, dir string, args ...string) {
@@ -132,5 +135,64 @@ func TestApproveGitHubCredentialWritesThroughConfiguredHelper(t *testing.T) {
 	got := string(data)
 	if got == "" || got != "https://algospider:token-123@github.com\n" {
 		t.Fatalf("unexpected credential store contents: %q", got)
+	}
+}
+
+func TestGitCmdWithRemoteInjectsGitHubHTTPSCredentials(t *testing.T) {
+	repo := initTestRepo(t)
+	runGitCommand(t, repo, "remote", "add", "origin", "https://github.com/example/project.git")
+
+	config.Save(config.Config{
+		Branch:  "main",
+		Remote:  "origin",
+		Owner:   "saved-owner",
+		Repo:    "project",
+		WorkDir: repo,
+	})
+
+	t.Setenv("GIT_GENIUS_GITHUB_TOKEN", "env-token")
+	t.Setenv("GIT_GENIUS_GITHUB_USERNAME", "saved-user")
+
+	cmd, err := GitCmdWithRemote("origin", "push", "-u", "origin", "main")
+	if err != nil {
+		t.Fatalf("GitCmdWithRemote: %v", err)
+	}
+
+	env := strings.Join(cmd.Env, "\n")
+	for _, want := range []string{
+		"GIT_TERMINAL_PROMPT=0",
+		"GIT_GENIUS_GITHUB_TOKEN=env-token",
+		"GIT_GENIUS_GITHUB_USERNAME=saved-user",
+		"GIT_CONFIG_KEY_0=credential.helper",
+	} {
+		if !strings.Contains(env, want) {
+			t.Fatalf("expected env to contain %q\n%s", want, env)
+		}
+	}
+}
+
+func TestGitCmdWithRemoteSkipsCredentialInjectionForNonGitHubRemote(t *testing.T) {
+	repo := initTestRepo(t)
+	runGitCommand(t, repo, "remote", "add", "origin", "https://example.com/project.git")
+
+	config.Save(config.Config{
+		Branch:  "main",
+		Remote:  "origin",
+		Owner:   "saved-owner",
+		Repo:    "project",
+		WorkDir: repo,
+	})
+
+	t.Setenv("GIT_GENIUS_GITHUB_TOKEN", "env-token")
+	t.Setenv("GIT_GENIUS_GITHUB_USERNAME", "saved-user")
+
+	cmd, err := GitCmdWithRemote("origin", "push", "-u", "origin", "main")
+	if err != nil {
+		t.Fatalf("GitCmdWithRemote: %v", err)
+	}
+
+	env := strings.Join(cmd.Env, "\n")
+	if strings.Contains(env, "GIT_GENIUS_GITHUB_TOKEN=env-token") {
+		t.Fatalf("did not expect GitHub credentials for non-GitHub remote\n%s", env)
 	}
 }

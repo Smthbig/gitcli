@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"git-genius/internal/config"
+	"git-genius/internal/github"
 	"git-genius/internal/ui"
 )
 
@@ -108,6 +109,18 @@ func GitCmd(args ...string) (*exec.Cmd, error) {
 		cmd.Dir = cfg.WorkDir
 	}
 
+	applyGitHubAuth(cmd, "")
+
+	return cmd, nil
+}
+
+func GitCmdWithRemote(remote string, args ...string) (*exec.Cmd, error) {
+	cmd, err := GitCmd(args...)
+	if err != nil {
+		return nil, err
+	}
+
+	applyGitHubAuth(cmd, remote)
 	return cmd, nil
 }
 
@@ -139,6 +152,19 @@ func RunGit(args ...string) error {
 	return cmd.Run()
 }
 
+func RunGitWithRemote(remote string, args ...string) error {
+	cmd, err := GitCmdWithRemote(remote, args...)
+	if err != nil {
+		return err
+	}
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	return cmd.Run()
+}
+
 func RunGitAt(dir string, args ...string) error {
 	cmd, err := GitCmdAt(dir, args...)
 	if err != nil {
@@ -154,6 +180,29 @@ func RunGitAt(dir string, args ...string) error {
 
 func GitOutput(args ...string) (string, error) {
 	cmd, err := GitCmd(args...)
+	if err != nil {
+		return "", err
+	}
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	if err != nil {
+		if stderr.Len() > 0 {
+			return "", errors.New(strings.TrimSpace(stderr.String()))
+		}
+		return "", err
+	}
+
+	return strings.TrimSpace(out.String()), nil
+}
+
+func GitOutputWithRemote(remote string, args ...string) (string, error) {
+	cmd, err := GitCmdWithRemote(remote, args...)
 	if err != nil {
 		return "", err
 	}
@@ -458,6 +507,98 @@ func ApproveGitHubCredential(username, token string) error {
 	}
 
 	return nil
+}
+
+func applyGitHubAuth(cmd *exec.Cmd, remote string) {
+	if cmd == nil {
+		return
+	}
+
+	token := github.GetToken()
+	if token == "" {
+		return
+	}
+
+	if !shouldUseGitHubAuth(remote) {
+		return
+	}
+
+	username := resolveGitHubUsername()
+	if username == "" {
+		return
+	}
+
+	env := envMap(cmd.Env)
+	env["GIT_TERMINAL_PROMPT"] = "0"
+	env["GIT_GENIUS_GITHUB_USERNAME"] = username
+	env["GIT_GENIUS_GITHUB_TOKEN"] = token
+	env["GIT_CONFIG_COUNT"] = "1"
+	env["GIT_CONFIG_KEY_0"] = "credential.helper"
+	env["GIT_CONFIG_VALUE_0"] = `!f() { test "$1" = get || exit 0; printf '%s\n' "username=$GIT_GENIUS_GITHUB_USERNAME" "password=$GIT_GENIUS_GITHUB_TOKEN"; }; f`
+	cmd.Env = envSlice(env)
+}
+
+func shouldUseGitHubAuth(remote string) bool {
+	remote = strings.TrimSpace(remote)
+	if remote == "" {
+		return false
+	}
+
+	url, err := RemoteURL(remote)
+	if err != nil {
+		return false
+	}
+
+	return isGitHubHTTPSURL(url)
+}
+
+func isGitHubHTTPSURL(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	return strings.HasPrefix(raw, "https://github.com/") || strings.HasPrefix(raw, "http://github.com/")
+}
+
+func resolveGitHubUsername() string {
+	if username := github.GetUsername(); username != "" {
+		return username
+	}
+
+	cfg := config.Load()
+	if cfg.Owner != "" {
+		return cfg.Owner
+	}
+
+	return "x-access-token"
+}
+
+func envMap(base []string) map[string]string {
+	env := make(map[string]string, len(os.Environ())+len(base))
+	for _, entry := range os.Environ() {
+		parts := strings.SplitN(entry, "=", 2)
+		if len(parts) == 2 {
+			env[parts[0]] = parts[1]
+		}
+	}
+	for _, entry := range base {
+		parts := strings.SplitN(entry, "=", 2)
+		if len(parts) == 2 {
+			env[parts[0]] = parts[1]
+		}
+	}
+	return env
+}
+
+func envSlice(env map[string]string) []string {
+	keys := make([]string, 0, len(env))
+	for key := range env {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	out := make([]string, 0, len(keys))
+	for _, key := range keys {
+		out = append(out, key+"="+env[key])
+	}
+	return out
 }
 
 func CurrentGitBranchAt(dir string) string {

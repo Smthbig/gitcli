@@ -145,7 +145,7 @@ func Push(msg string) bool {
 	}
 
 	// ---------- PUSH ----------
-	if err := system.RunGit("push", "-u", cfg.Remote, branch); err != nil {
+	if err := system.RunGitWithRemote(cfg.Remote, "push", "-u", cfg.Remote, branch); err != nil {
 		ui.Error("Push failed")
 		if !system.HasGitCredentialHelper() {
 			ui.Info("Run Tools -> Git Auth / Credential Helper to reduce repeated HTTPS auth prompts")
@@ -194,7 +194,7 @@ func Pull() bool {
 		}
 	}
 
-	if err := system.RunGit("pull", cfg.Remote, branch); err != nil {
+	if err := system.RunGitWithRemote(cfg.Remote, "pull", cfg.Remote, branch); err != nil {
 		ui.Error("Pull failed")
 		ui.Info("Try Smart Pull or run Doctor for more guidance")
 		return false
@@ -210,9 +210,17 @@ func Fetch() bool {
 		return false
 	}
 
-	if err := system.RunGit("fetch", "--all"); err != nil {
+	remotes, err := system.RemoteNames()
+	if err != nil {
 		ui.Error("Fetch failed")
 		return false
+	}
+
+	for _, remote := range remotes {
+		if err := system.RunGitWithRemote(remote, "fetch", remote); err != nil {
+			ui.Error("Fetch failed")
+			return false
+		}
 	}
 
 	ui.Success("Fetched all remotes")

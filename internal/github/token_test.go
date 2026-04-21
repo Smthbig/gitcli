@@ -20,3 +20,23 @@ func TestGetTokenPrefersEnvironment(t *testing.T) {
 		t.Fatalf("expected stored token to remain available")
 	}
 }
+
+func TestSaveAuthPersistsUsernameAndEnvironmentWins(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	if err := SaveAuth("file-token", "file-user"); err != nil {
+		t.Fatalf("SaveAuth: %v", err)
+	}
+
+	if got := GetUsername(); got != "file-user" {
+		t.Fatalf("GetUsername() = %q, want file-user", got)
+	}
+	if !HasStoredUsername() {
+		t.Fatalf("expected stored username to be available")
+	}
+
+	t.Setenv(EnvUserName, "env-user")
+	if got := GetUsername(); got != "env-user" {
+		t.Fatalf("GetUsername() = %q, want env-user", got)
+	}
+}

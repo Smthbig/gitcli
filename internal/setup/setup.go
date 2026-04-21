@@ -276,6 +276,7 @@ func setupGitHubToken() bool {
 			continue
 		}
 
+		authUser := ""
 		if user, err := github.ValidateToken(token); err != nil {
 			ui.Warn("Could not validate GitHub token")
 			ui.Info(err.Error())
@@ -286,10 +287,11 @@ func setupGitHubToken() bool {
 				continue
 			}
 		} else {
+			authUser = user
 			ui.Success("GitHub authenticated as: " + user)
 		}
 
-		if err := github.Save(token); err != nil {
+		if err := github.SaveAuth(token, authUser); err != nil {
 			ui.Error("Failed to save token")
 			ui.Info(err.Error())
 			return false
@@ -397,7 +399,7 @@ func offerFirstPush(cfg *config.Config) {
 		return
 	}
 
-	if err := system.RunGit("push", "-u", cfg.Remote, branch); err != nil {
+	if err := system.RunGitWithRemote(cfg.Remote, "push", "-u", cfg.Remote, branch); err != nil {
 		ui.Error("Push failed")
 		ui.Info("Run Daily Git Operations -> Push after reviewing the remote and branch setup")
 		return

@@ -62,7 +62,7 @@ func SmartPull() bool {
 		return false
 	}
 
-	if err := system.RunGit("pull", cfg.Remote, branch); err != nil {
+	if err := system.RunGitWithRemote(cfg.Remote, "pull", cfg.Remote, branch); err != nil {
 		ui.Error("Pull failed")
 
 		// Try restoring stash if pull failed
