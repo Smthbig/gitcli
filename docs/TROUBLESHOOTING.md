@@ -12,6 +12,8 @@ Fix:
 2. Choose `Memory cache` or `Persistent store`
 3. Preload the current GitHub token into Git
 
+Git Genius now repeats this guidance automatically after failed HTTPS pushes.
+
 If the issue continues:
 
 - run `Tools -> Doctor`
@@ -62,6 +64,20 @@ Fix:
 - or `Tools -> Change Project Directory`
 
 Git Genius can initialize the directory as a Git repo during setup.
+
+## First push does not happen
+
+Possible causes:
+
+- the repo still has no commit
+- there are no files to include in the first commit
+- the branch exists locally but has never been published
+
+Fix:
+
+1. Create at least one file if the repo is empty
+2. Run `Daily Git Operations -> Push changes`
+3. If auth fails, configure `Tools -> Git Auth / Credential Helper`
 
 ## GitHub repo checks fail
 

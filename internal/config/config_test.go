@@ -88,3 +88,33 @@ func TestSaveSkipsRepoConfigOutsideGitRepo(t *testing.T) {
 		t.Fatalf("expected state to keep active workdir, got %v", recent)
 	}
 }
+
+func TestRecentWorkDirsReordersWhenSwitchingProjects(t *testing.T) {
+	home := t.TempDir()
+	repoA := t.TempDir()
+	repoB := t.TempDir()
+
+	if err := os.MkdirAll(filepath.Join(repoA, ".git"), 0o755); err != nil {
+		t.Fatalf("mkdir repoA .git: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(repoB, ".git"), 0o755); err != nil {
+		t.Fatalf("mkdir repoB .git: %v", err)
+	}
+
+	t.Setenv("HOME", home)
+
+	Save(Config{WorkDir: repoA})
+	Save(Config{WorkDir: repoB})
+	Save(Config{WorkDir: repoA})
+
+	recent := RecentWorkDirs()
+	if len(recent) < 2 {
+		t.Fatalf("expected at least two recent directories, got %v", recent)
+	}
+	if recent[0] != repoA || recent[1] != repoB {
+		t.Fatalf("unexpected recent workdir order: %v", recent)
+	}
+	if got := preferredWorkDir(); got != repoA {
+		t.Fatalf("preferredWorkDir = %q want %q", got, repoA)
+	}
+}

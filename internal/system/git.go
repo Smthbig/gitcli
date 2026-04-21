@@ -3,10 +3,12 @@ package system
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -163,6 +165,21 @@ func RunGitWithRemote(remote string, args ...string) error {
 	cmd.Stdin = os.Stdin
 
 	return cmd.Run()
+}
+
+func RunGitWithRemoteBuffered(remote string, args ...string) (string, error) {
+	cmd, err := GitCmdWithRemote(remote, args...)
+	if err != nil {
+		return "", err
+	}
+
+	var stderr bytes.Buffer
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
+	cmd.Stdin = os.Stdin
+
+	err = cmd.Run()
+	return strings.TrimSpace(stderr.String()), err
 }
 
 func RunGitAt(dir string, args ...string) error {
@@ -440,6 +457,56 @@ func EnsureRemote(name, url string) error {
 	}
 
 	return RunGit("remote", "add", name, url)
+}
+
+func HasRemoteTrackingBranch(remote, branch string) bool {
+	remote = strings.TrimSpace(remote)
+	branch = strings.TrimSpace(branch)
+	if remote == "" || branch == "" {
+		return false
+	}
+
+	_, err := GitOutput("rev-parse", "--verify", remote+"/"+branch)
+	return err == nil
+}
+
+func AheadBehind(localRef, remoteRef string) (int, int, error) {
+	localRef = strings.TrimSpace(localRef)
+	remoteRef = strings.TrimSpace(remoteRef)
+	if localRef == "" || remoteRef == "" {
+		return 0, 0, errors.New("local and remote refs are required")
+	}
+
+	out, err := GitOutput("rev-list", "--left-right", "--count", localRef+"..."+remoteRef)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	fields := strings.Fields(out)
+	if len(fields) != 2 {
+		return 0, 0, errors.New("unexpected ahead/behind output")
+	}
+
+	ahead, err := strconv.Atoi(fields[0])
+	if err != nil {
+		return 0, 0, err
+	}
+	behind, err := strconv.Atoi(fields[1])
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return ahead, behind, nil
+}
+
+func RemoteUsesHTTPS(name string) bool {
+	url, err := RemoteURL(name)
+	if err != nil {
+		return false
+	}
+
+	url = strings.TrimSpace(strings.ToLower(url))
+	return strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "http://")
 }
 
 func GitCredentialHelper() (string, error) {

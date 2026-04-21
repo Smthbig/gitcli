@@ -17,17 +17,21 @@ Use this when the current directory is a new project or when the repo has not be
 6. Optionally create the GitHub repository
 7. Optionally do the first commit and push
 
+Brand-new repos are now called out directly in the context panel so the first run is harder to miss.
+
 ## Recommended Daily Flow
 
 1. Review the context panel
-2. Run `Daily Git Operations -> Git status`
-3. Run `Smart Pull` if you may be behind the remote and have local edits
-4. Edit files outside Git Genius
-5. Run `Push changes`
+2. Check the ahead/behind line when it is shown
+3. Run `Daily Git Operations -> Git status`
+4. Run `Smart Pull` if you may be behind the remote and have local edits
+5. Edit files outside Git Genius
+6. Run `Push changes`
 
 Why this order:
 
 - `Status` helps you inspect what changed
+- the context panel can show whether the current branch is ahead of or behind the fetched remote ref
 - `Smart Pull` reduces pull failures caused by local edits
 - `Push changes` stages, commits, and pushes in one guided step
 

@@ -12,6 +12,8 @@ Beginner-friendly interactive Git assistant for daily workflows, setup, recovery
 - Helps first-time setup for local repos and GitHub remotes
 - Supports multi-project switching with recent-directory history
 - Includes built-in diagnostics with Doctor checks
+- Shows cheap local ahead/behind context when remote refs are already available
+- Gives clearer first-run, empty-repo, first-push, and push-auth guidance
 
 ## Core Features
 
@@ -19,6 +21,7 @@ Beginner-friendly interactive Git assistant for daily workflows, setup, recovery
 - Safe branch and remote management
 - Stash and undo flows for recovery
 - Guided setup and reconfiguration
+- Context panel with branch, remote, ahead/behind, and first-push cues
 - GitHub repository create/link flow
 - GitHub token support from local storage or `GIT_GENIUS_GITHUB_TOKEN`
 - Git credential-helper configuration to reduce repeated HTTPS prompts
@@ -96,6 +99,13 @@ source ~/.zshrc
 3. Run `Smart Pull` before pushing when the remote may have changed
 4. Edit files in your normal editor
 5. Run `Push changes`
+
+The context panel now calls out:
+
+- first runs in brand-new repos
+- `ahead / behind` counts when matching remote refs already exist locally
+- first-push status when a branch has not been published yet
+- direct credential-helper guidance after failed HTTPS pushes
 
 ### Multi-project workflow
 

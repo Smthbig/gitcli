@@ -58,7 +58,15 @@ func maybeOfferSetup(gitAvailable bool) {
 		return
 	}
 
-	ui.Info("No Git Genius setup found for this project yet")
+	if system.IsGitRepo() {
+		if gitops.InspectRepoState().HasCommits {
+			ui.Info("First run for this repository: Git Genius has not been configured here yet")
+		} else {
+			ui.Info("Brand-new repository detected: no commits yet and no Git Genius setup found")
+		}
+	} else {
+		ui.Info("Brand-new project directory detected: setup can initialize Git and prepare the first push")
+	}
 	if setup.Run() {
 		ui.Pause()
 	}
@@ -91,8 +99,20 @@ func showContext(gitAvailable bool) {
 	fmt.Println("Path    :", projectDir)
 
 	if gitAvailable {
-		fmt.Println("Branch  :", gitops.CurrentBranch())
+		state := gitops.InspectRepoState()
+		fmt.Println("Branch  :", state.Branch)
 		fmt.Println("Remote  :", system.CurrentRemote())
+		if state.HasAheadBehind {
+			fmt.Println("Sync    :", state.AheadBehindSummary())
+		}
+		if state.FirstRun {
+			fmt.Println("First Run:", "Setup recommended for this repo")
+		}
+		if !state.HasCommits {
+			fmt.Println("Repo    :", "No commits yet")
+		} else if state.NeedsFirstPush {
+			fmt.Println("Publish :", "First push still pending")
+		}
 	} else {
 		fmt.Println("Mode    :", "Limited (Git unavailable)")
 	}
