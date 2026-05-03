@@ -110,11 +110,12 @@ The context panel now calls out:
 
 ### Multi-project workflow
 
-1. Open `Tools -> Switch Project / Repo`
+1. Open `Tools -> Switch Project`
 2. Pick a recent project or enter a path manually
-3. Git Genius switches the active directory and loads that repo's saved branch/remote config
-4. Optionally switch branch or remote immediately in the same flow
-5. Re-run setup only for a brand-new repo that has never been configured
+3. Git Genius shows the repo context (branch, remote, GitHub link) before switching
+4. Git Genius switches the active directory and loads that repo's saved branch/remote config
+5. Optionally switch branch or remote immediately in the same flow
+6. Re-run setup only for a brand-new repo that has never been configured
 
 ## Authentication Model
 

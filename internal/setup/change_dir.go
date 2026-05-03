@@ -12,22 +12,13 @@ import (
 	"git-genius/internal/ui"
 )
 
-func ChangeProjectDir() bool {
-	return switchProject(false)
-}
-
-func SwitchProjectRepo() bool {
-	return switchProject(true)
-}
-
-func switchProject(withRepoOptions bool) bool {
-	title := "Change Project Directory"
-	if withRepoOptions {
-		title = "Switch Project / Repo"
-	}
-
+/*
+SwitchProject is the unified entry point for changing the active project directory.
+It detects if the target is a Git repo and shows context before switching.
+*/
+func SwitchProject() bool {
 	ui.Clear()
-	ui.Header(title)
+	ui.Header("Switch Project")
 
 	current := config.Load().GetWorkDir()
 	ui.Info("Current project directory:")
@@ -52,33 +43,65 @@ func switchProject(withRepoOptions bool) bool {
 			return false
 		}
 
-		cfg, isRepo, err := activateProjectDir(resolveRecentDir(dir, recent))
+		targetDir := resolveRecentDir(dir, recent)
+		abs, err := filepath.Abs(targetDir)
 		if err != nil {
-			ui.Error(err.Error())
+			ui.Error("Failed to resolve directory path")
 			if !ui.ConfirmDefault("Try another directory?", true) {
 				return false
 			}
 			continue
 		}
 
-		ui.Success("Project directory updated")
-		ui.Info("New project directory:")
-		ui.Info(cfg.WorkDir)
-
-		if !isRepo {
-			return handleNonRepoSelection(cfg)
+		info, err := os.Stat(abs)
+		if err != nil || !info.IsDir() {
+			ui.Error("Invalid directory path")
+			if !ui.ConfirmDefault("Try another directory?", true) {
+				return false
+			}
+			continue
 		}
 
-		ui.Success("Git repository detected in new directory")
-		bootstrapProjectConfig(&cfg)
+		// Load config for the target directory to show context
+		targetCfg := config.LoadForWorkDir(abs)
+		isRepo := system.IsGitRepoAt(abs)
 
-		if !system.EnsureBranchSync() {
+		ui.Divider()
+		ui.Info("Target Directory: " + abs)
+		if isRepo {
+			ui.Success("Git repository detected")
+			showRepoContext(abs, targetCfg)
+		} else {
+			ui.Warn("Not a git repository")
+		}
+		ui.Divider()
+
+		if !ui.ConfirmDefault("Switch to this project?", true) {
+			if ui.Confirm("Try another directory?") {
+				continue
+			}
 			return false
 		}
 
-		if withRepoOptions {
-			return offerRepoSwitchOptions(cfg)
+		// Perform the switch
+		config.SetActiveWorkDir(abs)
+		ui.Success("Project directory updated")
+
+		if !isRepo {
+			return handleNonRepoSelection(targetCfg)
 		}
+
+		// Sync branch/remote defaults if it's a new repo for Git Genius
+		bootstrapProjectConfig(&targetCfg)
+
+		// Offer post-switch options if Git is available
+		if system.CommandExists("git") {
+			if !system.EnsureBranchSync() {
+				return false
+			}
+			return offerRepoSwitchOptions(targetCfg)
+		}
+
 		return true
 	}
 }
@@ -93,29 +116,32 @@ func resolveRecentDir(input string, recent []string) string {
 	return input
 }
 
-func activateProjectDir(dir string) (config.Config, bool, error) {
-	abs, err := filepath.Abs(strings.TrimSpace(dir))
-	if err != nil {
-		return config.Config{}, false, fmt.Errorf("failed to resolve directory path")
+func showRepoContext(dir string, cfg config.Config) {
+	// We need to temporarily set the work dir to inspect it, or use GitOutputAt
+	branch, _ := system.GitOutputAt(dir, "branch", "--show-current")
+	if branch == "" {
+		branch = cfg.Branch
+	}
+	if branch == "" {
+		branch = "-"
 	}
 
-	info, err := os.Stat(abs)
-	if err != nil || !info.IsDir() {
-		return config.Config{}, false, fmt.Errorf("invalid directory path")
+	remote := cfg.Remote
+	if remote == "" {
+		// Try to auto-detect a remote if not in config
+		if remotes, err := system.RemoteNames(); err == nil && len(remotes) > 0 {
+			remote = remotes[0]
+		}
+	}
+	if remote == "" {
+		remote = "-"
 	}
 
-	config.SetActiveWorkDir(abs)
-
-	if system.IsGitRepo() {
-		system.EnsureSafeDirectory(abs)
-		cfg := config.Load()
-		cfg.WorkDir = abs
-		return cfg, true, nil
+	ui.Info("Branch : " + branch)
+	ui.Info("Remote : " + remote)
+	if cfg.Owner != "" && cfg.Repo != "" {
+		ui.Info("Repo   : https://github.com/" + cfg.Owner + "/" + cfg.Repo)
 	}
-
-	cfg := config.LoadForWorkDir(abs)
-	cfg.WorkDir = abs
-	return cfg, false, nil
 }
 
 func bootstrapProjectConfig(cfg *config.Config) {
@@ -126,14 +152,17 @@ func bootstrapProjectConfig(cfg *config.Config) {
 	changed := false
 
 	if !config.HasProjectConfig(cfg.WorkDir) {
-		if branch := system.CurrentGitBranch(); branch != "" {
+		if branch, _ := system.GitOutputAt(cfg.WorkDir, "branch", "--show-current"); branch != "" {
 			cfg.Branch = branch
 			changed = true
 		}
 
-		if remotes, err := system.RemoteNames(); err == nil && len(remotes) == 1 {
-			cfg.Remote = remotes[0]
-			changed = true
+		if remotes, err := system.GitOutputAt(cfg.WorkDir, "remote"); err == nil && remotes != "" {
+			lines := strings.Split(remotes, "\n")
+			if len(lines) > 0 && lines[0] != "" {
+				cfg.Remote = strings.TrimSpace(lines[0])
+				changed = true
+			}
 		}
 	}
 
@@ -142,17 +171,21 @@ func bootstrapProjectConfig(cfg *config.Config) {
 	}
 
 	config.Save(*cfg)
-	ui.Info("Loaded repo defaults for this project so setup does not need to be repeated")
+	ui.Info("Loaded repo defaults for this project")
 }
 
 func handleNonRepoSelection(cfg config.Config) bool {
-	ui.Warn("Selected directory is not a git repository")
+	if !system.CommandExists("git") {
+		ui.Warn("Git is not installed. Operations will be limited.")
+		return true
+	}
+
 	if !ui.Confirm("Initialize a git repository here?") {
 		ui.Warn("Git operations will be limited until repo is initialized")
 		return true
 	}
 
-	if err := system.RunGit("init"); err != nil {
+	if err := system.RunGitAt(cfg.WorkDir, "init"); err != nil {
 		ui.Error("Failed to initialize git repository")
 		return false
 	}
@@ -161,37 +194,39 @@ func handleNonRepoSelection(cfg config.Config) bool {
 	bootstrapProjectConfig(&cfg)
 
 	if cfg.Branch != "" {
-		if err := system.PrepareBranch(cfg.Branch); err != nil {
-			ui.Warn("Could not prepare configured branch")
-			ui.Info(err.Error())
-		} else {
-			ui.Success("Branch ready: " + cfg.Branch)
-		}
+		// We can't use PrepareBranch easily here because it uses config.Load()
+		// but we just initialized a repo. Let's just try to create/checkout.
+		_ = system.RunGitAt(cfg.WorkDir, "checkout", "-b", cfg.Branch)
 	}
 
 	return true
 }
 
 func offerRepoSwitchOptions(cfg config.Config) bool {
-	ui.Info("Saved branch : " + cfg.Branch)
-	ui.Info("Saved remote : " + cfg.Remote)
+	ui.Info("Current branch : " + cfg.Branch)
+	ui.Info("Current remote : " + cfg.Remote)
 
-	if ui.Confirm("Switch branch in this repo now?") {
+	if ui.Confirm("Switch branch now?") {
 		if !gitops.SwitchBranch() {
 			return false
 		}
 	}
 
-	if ui.Confirm("Configure or switch the active remote now?") {
+	if ui.Confirm("Configure or switch remote now?") {
 		if !gitops.SwitchRemote() {
 			return false
 		}
 	}
 
-	if !config.HasProjectConfig(cfg.WorkDir) {
-		ui.Info("This repo is using auto-detected defaults right now")
-		ui.Info("Run Tools -> Setup / Reconfigure later if you want to save owner/repo details too")
-	}
-
 	return true
+}
+
+// Deprecated: used for backward compatibility during refactor
+func ChangeProjectDir() bool {
+	return SwitchProject()
+}
+
+// Deprecated: used for backward compatibility during refactor
+func SwitchProjectRepo() bool {
+	return SwitchProject()
 }

@@ -160,7 +160,7 @@ func mainMenu() bool {
 
 func limitedMenu() bool {
 	fmt.Println("1) Setup / Reconfigure")
-	fmt.Println("2) Change Project Directory")
+	fmt.Println("2) Switch Project")
 	fmt.Println("3) Doctor (health check)")
 	fmt.Println("4) Help / About")
 	fmt.Println("5) Exit")
@@ -171,7 +171,7 @@ func limitedMenu() bool {
 	case "1":
 		track("tools", "setup_reconfigure", setup.Run)
 	case "2":
-		track("tools", "change_project_dir", setup.ChangeProjectDir)
+		track("tools", "switch_project", setup.SwitchProject)
 	case "3":
 		track("tools", "doctor", doctor.Run)
 	case "4", "h", "help", "?":
@@ -308,14 +308,14 @@ func toolsMenu(gitAvailable bool) {
 		ui.Header("Tools")
 
 		fmt.Println("1) Setup / Reconfigure")
+		fmt.Println("2) Switch Project")
+
 		if gitAvailable {
-			fmt.Println("2) Create / Link GitHub Repository")
-			fmt.Println("3) Git Auth / Credential Helper")
-			fmt.Println("4) Switch Project / Repo")
+			fmt.Println("3) Create / Link GitHub Repository")
+			fmt.Println("4) Git Auth / Credential Helper")
 			fmt.Println("5) Doctor (health check)")
 			fmt.Println("6) Back")
 		} else {
-			fmt.Println("2) Change Project Directory")
 			fmt.Println("3) Doctor (health check)")
 			fmt.Println("4) Back")
 		}
@@ -326,20 +326,16 @@ func toolsMenu(gitAvailable bool) {
 		case "1":
 			track("tools", "setup_reconfigure", setup.Run)
 		case "2":
-			if gitAvailable {
-				track("tools", "create_or_link_repo", setup.CreateOrLinkRepo)
-			} else {
-				track("tools", "change_project_dir", setup.ChangeProjectDir)
-			}
+			track("tools", "switch_project", setup.SwitchProject)
 		case "3":
 			if gitAvailable {
-				track("tools", "configure_git_auth", setup.ConfigureGitAuth)
+				track("tools", "create_or_link_repo", setup.CreateOrLinkRepo)
 			} else {
 				track("tools", "doctor", doctor.Run)
 			}
 		case "4":
 			if gitAvailable {
-				track("tools", "switch_project_repo", setup.SwitchProjectRepo)
+				track("tools", "configure_git_auth", setup.ConfigureGitAuth)
 			} else {
 				return
 			}
@@ -347,7 +343,7 @@ func toolsMenu(gitAvailable bool) {
 			if gitAvailable {
 				track("tools", "doctor", doctor.Run)
 			} else {
-				return
+				ui.Error("Invalid option")
 			}
 		case "6":
 			if gitAvailable {

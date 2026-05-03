@@ -668,14 +668,6 @@ func envSlice(env map[string]string) []string {
 	return out
 }
 
-func CurrentGitBranchAt(dir string) string {
-	branch, err := GitOutputAt(dir, "branch", "--show-current")
-	if err != nil {
-		return ""
-	}
-	return branch
-}
-
 func EnsureBranchSync() bool {
 	if !IsGitRepo() {
 		return true

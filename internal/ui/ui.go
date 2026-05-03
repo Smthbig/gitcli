@@ -150,14 +150,6 @@ func Error(msg string) {
    Utility helpers
    ============================================================ */
 
-func PrintKV(key, value string) {
-	fmt.Printf("%-10s : %s\n", key, value)
-}
-
-func KeyHint(keys string) {
-	fmt.Println(Blue + "[" + keys + "]" + Reset)
-}
-
 // Help renders a help screen with title and bullet points
 // ============================================================
 // Help Renderer

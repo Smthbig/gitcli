@@ -73,10 +73,6 @@ func HasStoredToken() bool {
 	return storedToken() != ""
 }
 
-func HasStoredUsername() bool {
-	return storedUsername() != ""
-}
-
 func storedToken() string {
 	path, err := getTokenPath()
 	if err != nil {
