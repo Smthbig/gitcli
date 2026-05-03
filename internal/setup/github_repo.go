@@ -17,7 +17,7 @@ full setup rerun.
 */
 func CreateOrLinkRepo() bool {
 	ui.Clear()
-	ui.Header("Create / Link GitHub Repository")
+	ui.BoxHeader("Create / Link GitHub Repository")
 
 	cfg := config.Load()
 

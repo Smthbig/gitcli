@@ -18,7 +18,7 @@ It detects if the target is a Git repo and shows context before switching.
 */
 func SwitchProject() bool {
 	ui.Clear()
-	ui.Header("Switch Project")
+	ui.BoxHeader("Switch Project")
 
 	current := config.Load().GetWorkDir()
 	ui.Info("Current project directory:")

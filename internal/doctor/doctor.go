@@ -18,7 +18,7 @@ Android safe
 */
 func Run() bool {
 
-	ui.Header("Git Genius Doctor 🩺")
+	ui.BoxHeader("Git Genius Doctor 🩺")
 
 	checkGitInstalled()
 	checkWorkDir()

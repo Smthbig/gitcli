@@ -4,7 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 /* ============================================================
@@ -33,7 +37,7 @@ var reader = bufio.NewReader(os.Stdin)
    ============================================================ */
 
 func Input(label string) string {
-	fmt.Print(Cyan + label + ": " + Reset)
+	fmt.Print(Cyan + label + Reset + " ❯ ")
 	text, _ := reader.ReadString('\n')
 	return strings.TrimSpace(text)
 }
@@ -43,7 +47,7 @@ func InputDefault(label, defaultValue string) string {
 		return Input(label)
 	}
 
-	fmt.Print(Cyan + label + " [" + defaultValue + "]: " + Reset)
+	fmt.Print(Cyan + label + Reset + " [" + defaultValue + "] ❯ ")
 	text, _ := reader.ReadString('\n')
 	text = strings.TrimSpace(text)
 	if text == "" {
@@ -63,7 +67,7 @@ func ConfirmDefault(question string, def bool) bool {
 	}
 
 	for {
-		fmt.Print(Yellow + question + " (" + defStr + "): " + Reset)
+		fmt.Print(Yellow + question + Reset + " (" + defStr + ") ❯ ")
 		text, _ := reader.ReadString('\n')
 		ans := strings.ToLower(strings.TrimSpace(text))
 
@@ -84,16 +88,10 @@ func ConfirmDefault(question string, def bool) bool {
 Select presents numbered options and returns choice index (1-based)
 */
 func Select(label string, options []string) int {
-	fmt.Println(Cyan + label + Reset)
-	for i, opt := range options {
-		fmt.Printf(" %d) %s\n", i+1, opt)
-	}
+	BoxMenu(label, options)
 
 	for {
-		fmt.Print("Select option: ")
-		text, _ := reader.ReadString('\n')
-		text = strings.TrimSpace(text)
-
+		text := Input("Select option")
 		for i := range options {
 			if text == fmt.Sprint(i+1) {
 				return i + 1
@@ -103,12 +101,39 @@ func Select(label string, options []string) int {
 	}
 }
 
+func MenuChoice() string {
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		// Fallback to regular input if raw mode fails
+		return strings.ToLower(Input("Select option"))
+	}
+	defer func() {
+		_ = term.Restore(int(os.Stdin.Fd()), oldState)
+	}()
+
+	b := make([]byte, 1)
+	_, err = os.Stdin.Read(b)
+	if err != nil {
+		return ""
+	}
+
+	char := string(b)
+	// Handle Ctrl+C (ASCII 3)
+	if b[0] == 3 {
+		fmt.Println("^C")
+		os.Exit(0)
+	}
+
+	fmt.Println(char) // Echo the choice
+	return strings.ToLower(char)
+}
+
 /* ============================================================
    Screen helpers
    ============================================================ */
 
 func Pause() {
-	fmt.Print("\nPress Enter to continue...")
+	fmt.Print("\n" + Yellow + "Press Enter to continue..." + Reset)
 	reader.ReadString('\n')
 }
 
@@ -116,14 +141,86 @@ func Clear() {
 	fmt.Print("\033[H\033[2J")
 }
 
-func Header(title string) {
-	fmt.Println(Magenta + "========================================" + Reset)
-	fmt.Println(Bold + Cyan + " " + title + Reset)
-	fmt.Println(Magenta + "========================================" + Reset)
+func BoxHeader(title string) {
+	width := 42
+	fmt.Println(Magenta + "┏" + strings.Repeat("━", width-2) + "┓" + Reset)
+	
+	// Calculate padding for centering
+	titleLen := len(title)
+	padding := (width - 2 - titleLen) / 2
+	if padding < 0 {
+		padding = 0
+	}
+	rightPadding := width - 2 - titleLen - padding
+	if rightPadding < 0 {
+		rightPadding = 0
+	}
+
+	fmt.Printf(Magenta+"┃"+Reset+strings.Repeat(" ", padding)+Bold+Cyan+"%s"+Reset+strings.Repeat(" ", rightPadding)+Magenta+"┃\n"+Reset, title)
+	fmt.Println(Magenta + "┗" + strings.Repeat("━", width-2) + "┛" + Reset)
+}
+
+func BoxMenu(title string, options []string) {
+	width := 42
+	fmt.Println(Magenta + "┏" + strings.Repeat("━", width-2) + "┓" + Reset)
+	fmt.Printf(Magenta+"┃ "+Reset+Bold+Cyan+"%-*s"+Magenta+" ┃\n"+Reset, width-4, title)
+	fmt.Println(Magenta + "┣" + strings.Repeat("━", width-2) + "┫" + Reset)
+	
+	for _, opt := range options {
+		fmt.Printf(Magenta+"┃ "+Reset+"%-*s"+Magenta+" ┃\n"+Reset, width-4, opt)
+	}
+	fmt.Println(Magenta + "┗" + strings.Repeat("━", width-2) + "┛" + Reset)
 }
 
 func Divider() {
 	fmt.Println(Magenta + "----------------------------------------" + Reset)
+}
+
+/* ============================================================
+   External Helpers
+   ============================================================ */
+
+// OpenURL opens the specified URL in the default browser/app.
+// Optimized for Termux via termux-open, but supports other OSs.
+func OpenURL(url string) error {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "android":
+		// Termux specific
+		cmd = exec.Command("termux-open", url)
+	case "linux":
+		if _, err := exec.LookPath("termux-open"); err == nil {
+			cmd = exec.Command("termux-open", url)
+		} else {
+			cmd = exec.Command("xdg-open", url)
+		}
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+	}
+
+	return cmd.Start()
+}
+
+func SelectConventionalType() string {
+	types := []string{
+		"feat:     A new feature",
+		"fix:      A bug fix",
+		"docs:     Documentation only changes",
+		"style:    Changes that do not affect the meaning of the code",
+		"refactor: A code change that neither fixes a bug nor adds a feature",
+		"perf:     A code change that improves performance",
+		"test:     Adding missing tests or correcting existing tests",
+		"chore:    Changes to the build process or auxiliary tools",
+	}
+
+	choice := Select("Select change type", types)
+	selected := types[choice-1]
+	return strings.Split(selected, ":")[0]
 }
 
 /* ============================================================

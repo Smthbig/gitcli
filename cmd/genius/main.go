@@ -27,7 +27,7 @@ func main() {
 	}
 
 	ui.Clear()
-	ui.Header("Git Genius")
+	ui.BoxHeader("Git Genius")
 
 	// --- Git availability (safe & non-fatal on Android) ---
 	gitAvailable := true

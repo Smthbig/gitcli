@@ -38,7 +38,7 @@ func configureGitAuthIfNeeded() bool {
 
 func ConfigureGitAuth() bool {
 	ui.Clear()
-	ui.Header("Git Authentication")
+	ui.BoxHeader("Git Authentication")
 
 	if err := system.EnsureGitInstalled(); err != nil {
 		ui.Error("Git is required to configure authentication")

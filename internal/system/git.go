@@ -104,7 +104,9 @@ func GitCmd(args ...string) (*exec.Cmd, error) {
 		return nil, err
 	}
 
-	cmd := exec.Command(git, args...)
+	// Always prepend --no-pager to avoid environment-specific pager failures
+	fullArgs := append([]string{"--no-pager"}, args...)
+	cmd := exec.Command(git, fullArgs...)
 
 	cfg := config.Load()
 	if cfg.WorkDir != "" {
@@ -132,7 +134,9 @@ func GitCmdAt(dir string, args ...string) (*exec.Cmd, error) {
 		return nil, err
 	}
 
-	cmd := exec.Command(git, args...)
+	// Always prepend --no-pager to avoid environment-specific pager failures
+	fullArgs := append([]string{"--no-pager"}, args...)
+	cmd := exec.Command(git, fullArgs...)
 	cmd.Dir = dir
 	return cmd, nil
 }
