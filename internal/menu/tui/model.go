@@ -11,6 +11,7 @@ type MenuItem struct {
 }
 
 type Model struct {
+	Title        string
 	Cursor       int
 	MenuItems    []MenuItem
 	GitAvailable bool
@@ -25,8 +26,9 @@ type Model struct {
 	OnStatus     func() bool
 }
 
-func NewModel(version string, gitAvailable bool, items []MenuItem) Model {
+func NewModel(title, version string, gitAvailable bool, items []MenuItem) Model {
 	return Model{
+		Title:        title,
 		MenuItems:    items,
 		Version:      version,
 		GitAvailable: gitAvailable,

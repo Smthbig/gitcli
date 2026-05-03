@@ -3,105 +3,39 @@ package menu
 import (
 	"git-genius/internal/doctor"
 	"git-genius/internal/github"
+	"git-genius/internal/menu/tui"
 	"git-genius/internal/setup"
 	"git-genius/internal/ui"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func toolsMenu(gitAvailable bool) {
-	for {
-		ui.Clear()
-		ui.BoxHeader("Tools")
+	var items []tui.MenuItem
+	items = append(items, tui.MenuItem{Label: "Setup / Reconfigure", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("tools", "setup_reconfigure", setup.Run); ui.Pause(); return true }} }})
+	items = append(items, tui.MenuItem{Label: "Switch Project", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("tools", "switch_project", setup.SwitchProject); ui.Pause(); return true }} }})
 
-		options := []string{
-			"1) Setup / Reconfigure",
-			"2) Switch Project",
-		}
-
-		if gitAvailable {
-			options = append(options,
-				"3) Create / Link GitHub Repository",
-				"4) GitHub Project Links",
-				"5) Git Auth / Credential Helper",
-				"6) Doctor (health check)",
-				"7) Back",
-			)
-		} else {
-			options = append(options,
-				"3) Doctor (health check)",
-				"4) Back",
-			)
-		}
-		options = append(options, "", "Tip: h = help")
-
-		ui.BoxMenu("Toolbox", options)
-
-		switch ui.MenuChoice() {
-		case "1":
-			track("tools", "setup_reconfigure", setup.Run)
-		case "2":
-			track("tools", "switch_project", setup.SwitchProject)
-		case "3":
-			if gitAvailable {
-				track("tools", "create_or_link_repo", setup.CreateOrLinkRepo)
-			} else {
-				track("tools", "doctor", doctor.Run)
-			}
-		case "4":
-			if gitAvailable {
-				githubLinksMenu()
-			} else {
-				return
-			}
-		case "5":
-			if gitAvailable {
-				track("tools", "configure_git_auth", setup.ConfigureGitAuth)
-			} else {
-				ui.Error("Invalid option")
-			}
-		case "6":
-			if gitAvailable {
-				track("tools", "doctor", doctor.Run)
-			} else {
-				ui.Error("Invalid option")
-			}
-		case "7", "b", "q":
-			if gitAvailable {
-				return
-			}
-			ui.Error("Invalid option")
-		case "h":
-			sectionHelp("Tools", ui.HelpTools)
-		default:
-			ui.Error("Invalid option")
-		}
-		ui.Pause()
+	if gitAvailable {
+		items = append(items,
+			tui.MenuItem{Label: "Create / Link GitHub Repository", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("tools", "create_or_link_repo", setup.CreateOrLinkRepo); ui.Pause(); return true }} }},
+			tui.MenuItem{Label: "GitHub Project Links", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { githubLinksMenu(); return true }} }},
+			tui.MenuItem{Label: "Git Auth / Credential Helper", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("tools", "configure_git_auth", setup.ConfigureGitAuth); ui.Pause(); return true }} }},
+			tui.MenuItem{Label: "Doctor (health check)", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("tools", "doctor", doctor.Run); ui.Pause(); return true }} }},
+		)
+	} else {
+		items = append(items, tui.MenuItem{Label: "Doctor (health check)", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("tools", "doctor", doctor.Run); ui.Pause(); return true }} }})
 	}
+	items = append(items, tui.MenuItem{Label: "Back", Action: func() tea.Msg { return tea.Quit() }})
+
+	RunSubMenu("TOOLS", items, gitAvailable)
 }
 
 func githubLinksMenu() {
-	for {
-		ui.Clear()
-		ui.BoxHeader("GitHub Project Links")
-
-		ui.BoxMenu("Shortcuts", []string{
-			"1) Open Repository",
-			"2) Open Pull Requests",
-			"3) Open Issues",
-			"4) Back",
-		})
-
-		switch ui.MenuChoice() {
-		case "1":
-			github.OpenRepo()
-		case "2":
-			github.OpenPRs()
-		case "3":
-			github.OpenIssues()
-		case "4", "b", "q":
-			return
-		default:
-			ui.Error("Invalid option")
-		}
-		ui.Pause()
+	items := []tui.MenuItem{
+		{Label: "Open Repository", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { github.OpenRepo(); ui.Pause(); return true }} }},
+		{Label: "Open Pull Requests", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { github.OpenPRs(); ui.Pause(); return true }} }},
+		{Label: "Open Issues", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { github.OpenIssues(); ui.Pause(); return true }} }},
+		{Label: "Back", Action: func() tea.Msg { return tea.Quit() }},
 	}
+
+	RunSubMenu("GITHUB LINKS", items, true)
 }

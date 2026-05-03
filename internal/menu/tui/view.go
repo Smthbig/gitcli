@@ -29,7 +29,7 @@ func (m Model) View() string {
 	
 	menuBox := ui.MainBorderStyle.
 		Width(30).
-		Render(ui.TitleStyle.Render(" MENU ") + "\n\n" + menuBuilder.String())
+		Render(ui.TitleStyle.Render(" "+m.Title+" ") + "\n\n" + menuBuilder.String())
 
 	// Dashboard / Status
 	var statusBuilder strings.Builder

@@ -13,7 +13,7 @@ import (
 )
 
 /* ============================================================
-   ANSI color codes
+   ANSI color codes (kept for legacy support if needed)
    ============================================================ */
 
 const (
@@ -38,7 +38,7 @@ var reader = bufio.NewReader(os.Stdin)
    ============================================================ */
 
 func Input(label string) string {
-	fmt.Print(Cyan + label + Reset + " ❯ ")
+	fmt.Print(InfoStyle.Render(label) + " ❯ ")
 	text, _ := reader.ReadString('\n')
 	return strings.TrimSpace(text)
 }
@@ -48,7 +48,7 @@ func InputDefault(label, defaultValue string) string {
 		return Input(label)
 	}
 
-	fmt.Print(Cyan + label + Reset + " [" + defaultValue + "] ❯ ")
+	fmt.Print(InfoStyle.Render(label) + DimStyle.Render(" ["+defaultValue+"]") + " ❯ ")
 	text, _ := reader.ReadString('\n')
 	text = strings.TrimSpace(text)
 	if text == "" {
@@ -68,7 +68,7 @@ func ConfirmDefault(question string, def bool) bool {
 	}
 
 	for {
-		fmt.Print(Yellow + question + Reset + " (" + defStr + ") ❯ ")
+		fmt.Print(WarningStyle.Render(question) + DimStyle.Render(" ("+defStr+")") + " ❯ ")
 		text, _ := reader.ReadString('\n')
 		ans := strings.ToLower(strings.TrimSpace(text))
 
@@ -81,7 +81,7 @@ func ConfirmDefault(question string, def bool) bool {
 		if ans == "n" || ans == "no" {
 			return false
 		}
-		fmt.Println(Red + "Please enter y or n." + Reset)
+		fmt.Println(ErrorStyle.Render("Please enter y or n."))
 	}
 }
 
@@ -98,7 +98,7 @@ func Select(label string, options []string) int {
 				return i + 1
 			}
 		}
-		fmt.Println(Red + "Invalid choice" + Reset)
+		fmt.Println(ErrorStyle.Render("Invalid choice"))
 	}
 }
 
@@ -134,7 +134,7 @@ func MenuChoice() string {
    ============================================================ */
 
 func Pause() {
-	fmt.Print("\n" + Yellow + "Press Enter to continue..." + Reset)
+	fmt.Print("\n" + WarningStyle.Render("Press Enter to continue..."))
 	reader.ReadString('\n')
 }
 
@@ -151,9 +151,7 @@ func GetTermWidth() int {
 }
 
 func Logo() {
-	fmt.Println(Bold + Cyan + `
-   ⚡ GIT GENIUS ⚡
-   PRO-TERMINAL v2` + Reset)
+	fmt.Println(HeaderStyle.Render("⚡ GIT GENIUS ⚡"))
 }
 
 func CyberSparkline(data []int) string {
@@ -182,18 +180,15 @@ func CyberSparkline(data []int) string {
 
 func RenderGrid(leftCol, rightCol []string) {
 	termWidth := GetTermWidth()
-	// We'll use 46 as the fixed width for our components (+ borders/padding)
 	leftWidth := 46
 
 	if termWidth < 95 {
-		// Stack them if screen is narrow (Termux portrait)
 		for _, l := range leftCol { fmt.Println(l) }
 		fmt.Println()
 		for _, r := range rightCol { fmt.Println(r) }
 		return
 	}
 
-	// Side-by-side (Termux landscape or Tablet)
 	maxLines := len(leftCol)
 	if len(rightCol) > maxLines {
 		maxLines = len(rightCol)
@@ -212,92 +207,52 @@ func RenderGrid(leftCol, rightCol []string) {
 			right = rightCol[i]
 		}
 
-		// Use a safe way to print columns with ANSI escapes
-		// Note: This is an experimental layout approach
 		fmt.Printf("%s   %s\n", left, right)
 	}
 }
 
 func BoxHeader(title string) {
-	width := 44
-	fmt.Println(Magenta + "╔" + strings.Repeat("═", width-2) + "╗" + Reset)
-	
-	titleLen := len(title)
-	padding := (width - 2 - titleLen) / 2
-	if padding < 0 { padding = 0 }
-	rightPadding := width - 2 - titleLen - padding
-	if rightPadding < 0 { rightPadding = 0 }
-
-	fmt.Printf(Magenta+"║"+Reset+strings.Repeat(" ", padding)+Bold+Cyan+"%s"+Reset+strings.Repeat(" ", rightPadding)+Magenta+"║\n"+Reset, title)
-	fmt.Println(Magenta + "╚" + strings.Repeat("═", width-2) + "╝" + Reset)
+	fmt.Println(HeaderStyle.Render(title))
 }
 
 func BoxMenu(title string, options []string) {
-	for _, l := range GetBoxMenuLines(title, options) {
-		fmt.Println(l)
-	}
-}
-
-func GetBoxMenuLines(title string, options []string) []string {
-	width := 44
-	var res []string
-	res = append(res, Cyan+"╔"+strings.Repeat("═", width-2)+"╗"+Reset)
-	res = append(res, fmt.Sprintf(Cyan+"║ "+Reset+Bold+Yellow+"%-*s"+Cyan+" ║"+Reset, width-4, title))
-	res = append(res, Cyan+"╠"+strings.Repeat("═", width-2)+"╣"+Reset)
-	
+	var builder strings.Builder
+	builder.WriteString(TitleStyle.Render(" " + title + " ") + "\n\n")
 	for _, opt := range options {
-		if opt == "" {
-			res = append(res, Cyan+"║"+strings.Repeat(" ", width-2)+"║"+Reset)
-			continue
-		}
-		res = append(res, fmt.Sprintf(Cyan+"║ "+Reset+"%-*s"+Cyan+" ║"+Reset, width-4, opt))
+		builder.WriteString("  " + opt + "\n")
 	}
-	res = append(res, Cyan+"╚"+strings.Repeat("═", width-2)+"╝"+Reset)
-	return res
+	fmt.Println(MainBorderStyle.Render(builder.String()))
 }
 
-func BoxPanel(title string, lines []string, color string) {
-	for _, l := range GetBoxPanelLines(title, lines, color) {
-		fmt.Println(l)
-	}
+func Info(msg string) {
+	fmt.Println(InfoStyle.Render("ℹ " + msg))
 }
 
-func GetBoxPanelLines(title string, lines []string, color string) []string {
-	width := 44
-	if color == "" { color = Blue }
-	var res []string
-	res = append(res, color+"┌"+strings.Repeat("─", width-2)+"┐"+Reset)
-	if title != "" {
-		res = append(res, fmt.Sprintf(color+"│ "+Reset+Bold+title+strings.Repeat(" ", width-len(title)-3)+color+"│"+Reset))
-		res = append(res, color+"├"+strings.Repeat("─", width-2)+"┤"+Reset)
-	}
-	
-	for _, line := range lines {
-		displayLine := line
-		if len(line) > width-4 {
-			displayLine = line[:width-7] + "..."
-		}
-		res = append(res, fmt.Sprintf(color+"│ "+Reset+"%-*s"+color+" │"+Reset, width-4, displayLine))
-	}
-	res = append(res, color+"└"+strings.Repeat("─", width-2)+"┘"+Reset)
-	return res
+func Success(msg string) {
+	fmt.Println(SuccessStyle.Render("✔ " + msg))
+}
+
+func Warn(msg string) {
+	fmt.Println(WarningStyle.Render("⚠ " + msg))
+}
+
+func Error(msg string) {
+	fmt.Println("\a" + ErrorStyle.Render("✘ " + msg))
 }
 
 func Divider() {
-	fmt.Println(Magenta + "----------------------------------------" + Reset)
+	fmt.Println(DividerStyle.Render(strings.Repeat("─", 44)))
 }
 
 /* ============================================================
    UX Helpers
    ============================================================ */
 
-// Spinner shows an animation while a task is running.
-// Returns a stop function.
 func Spinner(message string) func() {
 	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	stop := make(chan bool)
 	
-	fmt.Printf(Cyan+" %s "+Reset+"%s... ", frames[0], message)
+	fmt.Printf(InfoStyle.Render(" " + frames[0] + " ") + message + "... ")
 	
 	go func() {
 		i := 0
@@ -306,7 +261,7 @@ func Spinner(message string) func() {
 			case <-stop:
 				return
 			default:
-				fmt.Printf("\r"+Cyan+" %s "+Reset+"%s... ", frames[i], message)
+				fmt.Printf("\r"+InfoStyle.Render(" %s ")+message+"... ", frames[i])
 				i = (i + 1) % len(frames)
 				time.Sleep(100 * time.Millisecond)
 			}
@@ -323,14 +278,11 @@ func Spinner(message string) func() {
    External Helpers
    ============================================================ */
 
-// OpenURL opens the specified URL in the default browser/app.
-// Optimized for Termux via termux-open, but supports other OSs.
 func OpenURL(url string) error {
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
 	case "android":
-		// Termux specific
 		cmd = exec.Command("termux-open", url)
 	case "linux":
 		if _, err := exec.LookPath("termux-open"); err == nil {
@@ -367,35 +319,9 @@ func SelectConventionalType() string {
 }
 
 /* ============================================================
-   Message helpers
+   Help Renderer
    ============================================================ */
 
-func Info(msg string) {
-	fmt.Println(Cyan + "ℹ " + msg + Reset)
-}
-
-func Success(msg string) {
-	fmt.Println(Green + "✔ " + msg + Reset)
-}
-
-func Warn(msg string) {
-	fmt.Println(Yellow + "⚠ " + msg + Reset)
-}
-
-func Error(msg string) {
-	fmt.Println("\a" + Red + "✘ " + msg + Reset)
-}
-
-/* ============================================================
-   Utility helpers
-   ============================================================ */
-
-// Help renders a help screen with title and bullet points
-// ============================================================
-// Help Renderer
-// ============================================================
-
-// PrintHelp prints help lines in a clean readable format
 func PrintHelp(lines []string) {
 	for _, line := range lines {
 		fmt.Println("  " + line)

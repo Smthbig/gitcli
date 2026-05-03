@@ -2,52 +2,23 @@ package menu
 
 import (
 	"git-genius/internal/gitops"
+	"git-genius/internal/menu/tui"
 	"git-genius/internal/ui"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func dailyMenu() {
-	for {
-		ui.Clear()
-		ui.BoxHeader("Daily Git Operations")
-
-		ui.BoxMenu("Operations", []string{
-			"1) Push changes (commit + push)",
-			"2) Pull changes (standard merge)",
-			"3) Sync with Rebase (clean history)",
-			"4) Smart Pull (auto-stash + pull)",
-			"5) Force Push (with lease/safe)",
-			"6) Check for Conflicts",
-			"7) Fetch all remotes",
-			"8) Git status",
-			"9) Back",
-			"",
-			"Tip: h = help",
-		})
-
-		switch ui.MenuChoice() {
-		case "1":
-			track("daily", "push", func() bool { return gitops.Push("") })
-		case "2":
-			track("daily", "pull", gitops.Pull)
-		case "3":
-			track("daily", "pull_rebase", gitops.PullRebase)
-		case "4":
-			track("daily", "smart_pull", gitops.SmartPull)
-		case "5":
-			track("daily", "force_push", gitops.ForcePush)
-		case "6":
-			gitops.ShowConflicts()
-		case "7":
-			track("daily", "fetch", gitops.Fetch)
-		case "8":
-			track("daily", "status", gitops.Status)
-		case "9", "b", "q":
-			return
-		case "h":
-			sectionHelp("Daily Git Operations", ui.HelpDaily)
-		default:
-			ui.Error("Invalid option")
-		}
-		ui.Pause()
+	items := []tui.MenuItem{
+		{Label: "Push changes (commit + push)", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("daily", "push", func() bool { return gitops.Push("") }); ui.Pause(); return true }} }},
+		{Label: "Pull changes (standard merge)", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("daily", "pull", gitops.Pull); ui.Pause(); return true }} }},
+		{Label: "Sync with Rebase (clean history)", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("daily", "pull_rebase", gitops.PullRebase); ui.Pause(); return true }} }},
+		{Label: "Smart Pull (auto-stash + pull)", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("daily", "smart_pull", gitops.SmartPull); ui.Pause(); return true }} }},
+		{Label: "Force Push (with lease/safe)", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("daily", "force_push", gitops.ForcePush); ui.Pause(); return true }} }},
+		{Label: "Check for Conflicts", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { gitops.ShowConflicts(); ui.Pause(); return true }} }},
+		{Label: "Fetch all remotes", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("daily", "fetch", gitops.Fetch); ui.Pause(); return true }} }},
+		{Label: "Git status", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("daily", "status", gitops.Status); ui.Pause(); return true }} }},
+		{Label: "Back", Action: func() tea.Msg { return tea.Quit() }},
 	}
+
+	RunSubMenu("DAILY OPERATIONS", items, true)
 }

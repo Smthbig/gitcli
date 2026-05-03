@@ -15,6 +15,7 @@ var (
 	DimColor       = lipgloss.Color("#777777") // Gray
 
 	// Styles
+	DimStyle = lipgloss.NewStyle().Foreground(DimColor)
 	HeaderStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(AccentColor).
@@ -47,6 +48,7 @@ var (
 	SuccessStyle = lipgloss.NewStyle().Foreground(SuccessColor)
 	WarningStyle = lipgloss.NewStyle().Foreground(WarningColor)
 	ErrorStyle   = lipgloss.NewStyle().Foreground(ErrorColor)
+	DividerStyle = lipgloss.NewStyle().Foreground(AccentColor)
 
 	DocStyle = lipgloss.NewStyle().Padding(1, 2, 1, 2)
 )

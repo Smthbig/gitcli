@@ -44,7 +44,7 @@ func Start(appVersion string, gitAvailable bool) {
 	}
 
 	for {
-		m := tui.NewModel(appVersion, gitAvailable, items)
+		m := tui.NewModel("MAIN MENU", appVersion, gitAvailable, items)
 		m.Dashboard = GetStatusLines(gitAvailable)
 
 		// Wire quick keys
@@ -69,6 +69,34 @@ func Start(appVersion string, gitAvailable bool) {
 			}
 			if m.ActiveAction != nil {
 				m.ActiveAction()
+			}
+		}
+	}
+}
+
+func RunSubMenu(title string, items []tui.MenuItem, gitAvailable bool) {
+	appVersion := "dev" // Fallback or pass it down
+
+	for {
+		m := tui.NewModel(title, appVersion, gitAvailable, items)
+		m.Dashboard = GetStatusLines(gitAvailable)
+
+		p := tea.NewProgram(m)
+		finalModel, err := p.Run()
+		if err != nil {
+			return
+		}
+
+		if m, ok := finalModel.(tui.Model); ok {
+			if m.Quitting {
+				return
+			}
+			if m.ActiveAction != nil {
+				m.ActiveAction()
+			} else {
+				// If no action was selected (e.g. user pressed 'q' but not 'Quitting' was handled)
+				// Or if we just want to return to parent
+				return
 			}
 		}
 	}
