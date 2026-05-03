@@ -67,7 +67,11 @@ func pushCore(msg string, force bool) bool {
 		args = append(args, "--force-with-lease")
 	}
 
-	stderr, err := system.RunGitWithRemoteBuffered(cfg.Remote, args...)
+	stderr, err := func() (string, error) {
+		stop := ui.Spinner("Pushing to remote")
+		defer stop()
+		return system.RunGitWithRemoteBuffered(cfg.Remote, args...)
+	}()
 	if err != nil {
 		ui.Error("Push failed")
 		printPushFailureSummary(cfg.Remote, branch, stderr)

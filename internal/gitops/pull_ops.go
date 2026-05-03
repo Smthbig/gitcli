@@ -41,7 +41,12 @@ func pullCore(rebase bool) bool {
 	args = append(args, cfg.Remote, branch)
 
 	stateBefore := InspectRepoState()
-	if err := system.RunGitWithRemote(cfg.Remote, args...); err != nil {
+	err := func() error {
+		stop := ui.Spinner("Pulling changes")
+		defer stop()
+		return system.RunGitWithRemote(cfg.Remote, args...)
+	}()
+	if err != nil {
 		ui.Error("Pull failed")
 		if rebase {
 			ui.Info("If there are conflicts, resolve them and run 'git rebase --continue'")

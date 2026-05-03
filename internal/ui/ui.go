@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 
 	"golang.org/x/term"
 )
@@ -141,39 +142,181 @@ func Clear() {
 	fmt.Print("\033[H\033[2J")
 }
 
-func BoxHeader(title string) {
-	width := 42
-	fmt.Println(Magenta + "┏" + strings.Repeat("━", width-2) + "┓" + Reset)
-	
-	// Calculate padding for centering
-	titleLen := len(title)
-	padding := (width - 2 - titleLen) / 2
-	if padding < 0 {
-		padding = 0
+func GetTermWidth() int {
+	width, _, err := term.GetSize(int(os.Stdin.Fd()))
+	if err != nil {
+		return 80 // Default fallback
 	}
-	rightPadding := width - 2 - titleLen - padding
-	if rightPadding < 0 {
-		rightPadding = 0
+	return width
+}
+
+func Logo() {
+	fmt.Println(Bold + Cyan + `
+   ⚡ GIT GENIUS ⚡
+   PRO-TERMINAL v2` + Reset)
+}
+
+func CyberSparkline(data []int) string {
+	if len(data) == 0 {
+		return ""
+	}
+	// Unicode blocks for a sparkline effect
+	bars := []string{" ", "▂", "▃", "▄", "▅", "▆", "▇", "█"}
+	max := 0
+	for _, v := range data {
+		if v > max {
+			max = v
+		}
+	}
+	if max == 0 {
+		max = 1
 	}
 
-	fmt.Printf(Magenta+"┃"+Reset+strings.Repeat(" ", padding)+Bold+Cyan+"%s"+Reset+strings.Repeat(" ", rightPadding)+Magenta+"┃\n"+Reset, title)
-	fmt.Println(Magenta + "┗" + strings.Repeat("━", width-2) + "┛" + Reset)
+	var res strings.Builder
+	for _, v := range data {
+		idx := (v * (len(bars) - 1)) / max
+		res.WriteString(bars[idx])
+	}
+	return res.String()
+}
+
+func RenderGrid(leftCol, rightCol []string) {
+	termWidth := GetTermWidth()
+	// We'll use 46 as the fixed width for our components (+ borders/padding)
+	leftWidth := 46
+
+	if termWidth < 95 {
+		// Stack them if screen is narrow (Termux portrait)
+		for _, l := range leftCol { fmt.Println(l) }
+		fmt.Println()
+		for _, r := range rightCol { fmt.Println(r) }
+		return
+	}
+
+	// Side-by-side (Termux landscape or Tablet)
+	maxLines := len(leftCol)
+	if len(rightCol) > maxLines {
+		maxLines = len(rightCol)
+	}
+
+	for i := 0; i < maxLines; i++ {
+		left := ""
+		if i < len(leftCol) {
+			left = leftCol[i]
+		} else {
+			left = strings.Repeat(" ", leftWidth)
+		}
+		
+		right := ""
+		if i < len(rightCol) {
+			right = rightCol[i]
+		}
+
+		// Use a safe way to print columns with ANSI escapes
+		// Note: This is an experimental layout approach
+		fmt.Printf("%s   %s\n", left, right)
+	}
+}
+
+func BoxHeader(title string) {
+	width := 44
+	fmt.Println(Magenta + "╔" + strings.Repeat("═", width-2) + "╗" + Reset)
+	
+	titleLen := len(title)
+	padding := (width - 2 - titleLen) / 2
+	if padding < 0 { padding = 0 }
+	rightPadding := width - 2 - titleLen - padding
+	if rightPadding < 0 { rightPadding = 0 }
+
+	fmt.Printf(Magenta+"║"+Reset+strings.Repeat(" ", padding)+Bold+Cyan+"%s"+Reset+strings.Repeat(" ", rightPadding)+Magenta+"║\n"+Reset, title)
+	fmt.Println(Magenta + "╚" + strings.Repeat("═", width-2) + "╝" + Reset)
 }
 
 func BoxMenu(title string, options []string) {
-	width := 42
-	fmt.Println(Magenta + "┏" + strings.Repeat("━", width-2) + "┓" + Reset)
-	fmt.Printf(Magenta+"┃ "+Reset+Bold+Cyan+"%-*s"+Magenta+" ┃\n"+Reset, width-4, title)
-	fmt.Println(Magenta + "┣" + strings.Repeat("━", width-2) + "┫" + Reset)
+	for _, l := range GetBoxMenuLines(title, options) {
+		fmt.Println(l)
+	}
+}
+
+func GetBoxMenuLines(title string, options []string) []string {
+	width := 44
+	var res []string
+	res = append(res, Cyan+"╔"+strings.Repeat("═", width-2)+"╗"+Reset)
+	res = append(res, fmt.Sprintf(Cyan+"║ "+Reset+Bold+Yellow+"%-*s"+Cyan+" ║"+Reset, width-4, title))
+	res = append(res, Cyan+"╠"+strings.Repeat("═", width-2)+"╣"+Reset)
 	
 	for _, opt := range options {
-		fmt.Printf(Magenta+"┃ "+Reset+"%-*s"+Magenta+" ┃\n"+Reset, width-4, opt)
+		if opt == "" {
+			res = append(res, Cyan+"║"+strings.Repeat(" ", width-2)+"║"+Reset)
+			continue
+		}
+		res = append(res, fmt.Sprintf(Cyan+"║ "+Reset+"%-*s"+Cyan+" ║"+Reset, width-4, opt))
 	}
-	fmt.Println(Magenta + "┗" + strings.Repeat("━", width-2) + "┛" + Reset)
+	res = append(res, Cyan+"╚"+strings.Repeat("═", width-2)+"╝"+Reset)
+	return res
+}
+
+func BoxPanel(title string, lines []string, color string) {
+	for _, l := range GetBoxPanelLines(title, lines, color) {
+		fmt.Println(l)
+	}
+}
+
+func GetBoxPanelLines(title string, lines []string, color string) []string {
+	width := 44
+	if color == "" { color = Blue }
+	var res []string
+	res = append(res, color+"┌"+strings.Repeat("─", width-2)+"┐"+Reset)
+	if title != "" {
+		res = append(res, fmt.Sprintf(color+"│ "+Reset+Bold+title+strings.Repeat(" ", width-len(title)-3)+color+"│"+Reset))
+		res = append(res, color+"├"+strings.Repeat("─", width-2)+"┤"+Reset)
+	}
+	
+	for _, line := range lines {
+		displayLine := line
+		if len(line) > width-4 {
+			displayLine = line[:width-7] + "..."
+		}
+		res = append(res, fmt.Sprintf(color+"│ "+Reset+"%-*s"+color+" │"+Reset, width-4, displayLine))
+	}
+	res = append(res, color+"└"+strings.Repeat("─", width-2)+"┘"+Reset)
+	return res
 }
 
 func Divider() {
 	fmt.Println(Magenta + "----------------------------------------" + Reset)
+}
+
+/* ============================================================
+   UX Helpers
+   ============================================================ */
+
+// Spinner shows an animation while a task is running.
+// Returns a stop function.
+func Spinner(message string) func() {
+	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	stop := make(chan bool)
+	
+	fmt.Printf(Cyan+" %s "+Reset+"%s... ", frames[0], message)
+	
+	go func() {
+		i := 0
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				fmt.Printf("\r"+Cyan+" %s "+Reset+"%s... ", frames[i], message)
+				i = (i + 1) % len(frames)
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+	}()
+
+	return func() {
+		stop <- true
+		fmt.Print("\r" + strings.Repeat(" ", len(message)+10) + "\r") // Clear line
+	}
 }
 
 /* ============================================================
@@ -240,7 +383,7 @@ func Warn(msg string) {
 }
 
 func Error(msg string) {
-	fmt.Println(Red + "✘ " + msg + Reset)
+	fmt.Println("\a" + Red + "✘ " + msg + Reset)
 }
 
 /* ============================================================

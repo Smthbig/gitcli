@@ -24,43 +24,63 @@ func headerTitle(appVersion string, gitAvailable bool) string {
 	return title
 }
 
-func showContext(gitAvailable bool) {
+func GetStatusLines(gitAvailable bool) []string {
 	cfg := config.Load()
 	projectDir := cfg.GetWorkDir()
 
-	width := 42
-	fmt.Println(ui.Cyan + "┏" + strings.Repeat("━", width-2) + "┓" + ui.Reset)
-	fmt.Printf(ui.Cyan+"┃ "+ui.Reset+ui.Bold+"PROJECT: "+ui.Reset+"%-*s"+ui.Cyan+" ┃\n"+ui.Reset, width-13, filepath.Base(projectDir))
-	fmt.Printf(ui.Cyan+"┃ "+ui.Reset+"Path   : %-*s"+ui.Cyan+" ┃\n"+ui.Reset, width-11, projectDir)
-
+	var info []string
+	branch := "-"
+	remote := system.CurrentRemote()
+	sync := "0 ahead / 0 behind"
+	
 	if gitAvailable {
 		state := gitops.InspectRepoState()
-		fmt.Printf(ui.Cyan+"┃ "+ui.Reset+"Branch : %-*s"+ui.Cyan+" ┃\n"+ui.Reset, width-11, state.Branch)
-		fmt.Printf(ui.Cyan+"┃ "+ui.Reset+"Remote : %-*s"+ui.Cyan+" ┃\n"+ui.Reset, width-11, system.CurrentRemote())
+		branch = state.Branch
 		if state.HasAheadBehind {
-			fmt.Printf(ui.Cyan+"┃ "+ui.Reset+"Sync   : %-*s"+ui.Cyan+" ┃\n"+ui.Reset, width-11, state.AheadBehindSummary())
+			sync = state.AheadBehindSummary()
 		}
-	} else {
-		fmt.Printf(ui.Cyan+"┃ "+ui.Reset+"Mode   : %-*s"+ui.Cyan+" ┃\n"+ui.Reset, width-11, "Limited (Git unavailable)")
 	}
 
-	if cfg.Owner != "" && cfg.Repo != "" {
-		repoURL := "github.com/" + cfg.Owner + "/" + cfg.Repo
-		fmt.Printf(ui.Cyan+"┃ "+ui.Reset+"GitHub : %-*s"+ui.Cyan+" ┃\n"+ui.Reset, width-11, repoURL)
-	}
+	info = append(info, fmt.Sprintf("Project : %s", filepath.Base(projectDir)))
+	info = append(info, fmt.Sprintf("Branch  : %s", branch))
+	info = append(info, fmt.Sprintf("Remote  : %s", remote))
+	info = append(info, fmt.Sprintf("Sync    : %s", sync))
 	
-	suggestions := config.HistorySuggestions(projectDir)
-	if len(suggestions) > 0 {
-		fmt.Println(ui.Cyan + "┣" + strings.Repeat("━", width-2) + "┫" + ui.Reset)
-		for _, s := range suggestions {
-			fmt.Printf(ui.Cyan+"┃ "+ui.Reset+ui.Yellow+"󱐌 "+ui.Reset+"%-*s"+ui.Cyan+" ┃\n"+ui.Reset, width-13, s)
+	// Dynamic Health Check & Assistant
+	statusText := "HEALTHY"
+	nextAction := "Ready for work"
+	
+	if !gitAvailable {
+		statusText = "LIMITED"
+		nextAction = "Install Git"
+	} else {
+		state := gitops.InspectRepoState()
+		if state.HasConflicts {
+			statusText = "CONFLICT"
+			nextAction = "Fix Merge Conflicts"
+		} else if state.WorkingTreeDirty {
+			nextAction = "Commit your changes"
+		} else if state.Ahead > 0 {
+			nextAction = fmt.Sprintf("Push %d commits", state.Ahead)
+		} else if state.Behind > 0 {
+			nextAction = "Pull latest changes"
+		} else if state.NeedsFirstPush {
+			nextAction = "Publish repository"
 		}
 	}
-	fmt.Println(ui.Cyan + "┗" + strings.Repeat("━", width-2) + "┛" + ui.Reset)
-}
 
-func normalizeChoice(s string) string {
-	return strings.ToLower(strings.TrimSpace(s))
+	info = append(info, "")
+	info = append(info, fmt.Sprintf("Status  : %s", statusText))
+	info = append(info, fmt.Sprintf("Next    : %s", nextAction))
+	
+	data := gitops.GetRecentActivityData(7)
+	if data != nil {
+		spark := ui.CyberSparkline(data)
+		info = append(info, "")
+		info = append(info, fmt.Sprintf("Trend   : %s", spark))
+	}
+
+	return info
 }
 
 func track(section, action string, fn func() bool) {

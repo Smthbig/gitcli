@@ -19,6 +19,7 @@ type RepoState struct {
 	HasAheadBehind     bool
 	FirstRun           bool
 	NeedsFirstPush     bool
+	HasConflicts       bool
 }
 
 func InspectRepoState() RepoState {
@@ -30,6 +31,11 @@ func InspectRepoState() RepoState {
 		HasCommits:       hasAnyCommit(),
 		WorkingTreeDirty: isWorkingTreeDirty(),
 		FirstRun:         !config.HasProjectConfig(cfg.GetWorkDir()) && !config.HasHistoryForWorkDir(cfg.GetWorkDir()),
+	}
+
+	// Check for conflicts
+	if out, err := system.GitOutput("diff", "--name-only", "--diff-filter=U"); err == nil && out != "" {
+		state.HasConflicts = true
 	}
 
 	if state.Branch == "-" || state.Branch == "" {

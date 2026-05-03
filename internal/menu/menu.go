@@ -1,11 +1,16 @@
 package menu
 
 import (
+	"fmt"
+	"os"
+
 	"git-genius/internal/config"
 	"git-genius/internal/gitops"
+	"git-genius/internal/menu/tui"
 	"git-genius/internal/setup"
 	"git-genius/internal/system"
 	"git-genius/internal/ui"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 /*
@@ -15,21 +20,56 @@ It handles initialization and the main loop.
 func Start(appVersion string, gitAvailable bool) {
 	maybeOfferSetup(gitAvailable)
 
+	// Define menu items
+	var items []tui.MenuItem
+	if gitAvailable {
+		items = []tui.MenuItem{
+			{Label: "Daily Git Operations", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { dailyMenu(); return true }} }},
+			{Label: "Visual History (Graph)", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { gitops.ShowGraph(); ui.Pause(); return true }} }},
+			{Label: "Activity Timeline (Chart)", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { gitops.ShowActivityTimeline(); ui.Pause(); return true }} }},
+			{Label: "Project Insights (Stats)", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { gitops.ShowRepoStats(); ui.Pause(); return true }} }},
+			{Label: "Branch / Remote", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { branchMenu(); return true }} }},
+			{Label: "Stash & Undo", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { stashMenu(); return true }} }},
+			{Label: "Tools", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { toolsMenu(true); return true }} }},
+			{Label: "Help / About", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { mainHelp(); return true }} }},
+			{Label: "Exit", Action: func() tea.Msg { return tea.Quit() }},
+		}
+	} else {
+		items = []tui.MenuItem{
+			{Label: "Setup / Reconfigure", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("tools", "setup_reconfigure", setup.Run); return true }} }},
+			{Label: "Switch Project", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { track("tools", "switch_project", setup.SwitchProject); return true }} }},
+			{Label: "Help / About", Action: func() tea.Msg { return tui.ActionMsg{Action: func() bool { mainHelp(); return true }} }},
+			{Label: "Exit", Action: func() tea.Msg { return tea.Quit() }},
+		}
+	}
+
 	for {
-		ui.Clear()
-		ui.BoxHeader(headerTitle(appVersion, gitAvailable))
+		m := tui.NewModel(appVersion, gitAvailable, items)
+		m.Dashboard = GetStatusLines(gitAvailable)
 
-		showContext(gitAvailable)
-
+		// Wire quick keys
 		if gitAvailable {
-			if !mainMenu() {
-				return
-			}
-			continue
+			m.OnPush = func() bool { track("daily", "push", func() bool { return gitops.Push("") }); ui.Pause(); return true }
+			m.OnUpdate = func() bool { track("daily", "pull", gitops.Pull); ui.Pause(); return true }
+			m.OnStatus = func() bool { track("daily", "status", gitops.Status); ui.Pause(); return true }
 		}
 
-		if !limitedMenu() {
-			return
+		p := tea.NewProgram(m)
+		finalModel, err := p.Run()
+		if err != nil {
+			fmt.Printf("Error running UI: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Handle actions after TUI returns
+		if m, ok := finalModel.(tui.Model); ok {
+			if m.Quitting {
+				ui.Info("Goodbye")
+				return
+			}
+			if m.ActiveAction != nil {
+				m.ActiveAction()
+			}
 		}
 	}
 }
